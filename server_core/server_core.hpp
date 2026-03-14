@@ -18,6 +18,7 @@ class Server_core
     struct pollfd   tmp_pol;
     std::vector<struct pollfd>  vec_poll;
     bool client_connection();
+    bool client_request(int id_client_req);
 
     public:
     bool server_init();

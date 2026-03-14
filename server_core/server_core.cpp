@@ -27,6 +27,17 @@ bool Server_core::client_connection()
     return (true);
 }
 
+bool Server_core::client_request(int id_client_req)
+{
+    char buffer[1024];
+    int bytes;
+
+    bytes = recv(id_client_req, buffer, 1000, 0);
+    buffer[bytes] = 0;
+    std::cout << buffer << std::endl;
+    return (1);
+}
+
 bool Server_core::server_starting()
 {
     tmp_pol.fd = server_id;
@@ -41,6 +52,10 @@ bool Server_core::server_starting()
         {
             if (vec_poll[i].fd == server_id && (vec_poll[i].revents & POLL_IN))
                 client_connection();
+            else if ((vec_poll[i].revents & POLL_IN) && vec_poll[i].fd != server_id)
+            {
+                client_request(vec_poll[i].fd);
+            }
         }
     }
     return (1);
