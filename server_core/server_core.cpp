@@ -39,7 +39,7 @@ bool Server_core::server_starting()
         poll(&vec_poll[0], vec_poll.size(), -1);
         for (int i = 0; i < vec_poll.size(); i++)
         {
-            if (vec_poll[i].fd == server_id && (vec_poll[i].events & POLL_IN))
+            if (vec_poll[i].fd == server_id && (vec_poll[i].revents & POLL_IN))
                 client_connection();
         }
     }
