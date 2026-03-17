@@ -42,11 +42,12 @@ bool Server_core::client_request(int id_client_req)
     pos = req_map[id_client_req].find("\r\n\r\n");
     while (pos != std::string::npos)
     {
-        //jawade parsing
+        tmp = req_map[id_client_req].substr(0, pos + 4);
+        std::cout << tmp << std::endl;
+        //jawade parsing(tmp)
         req_map[id_client_req].erase(0, pos + 4);
         pos = req_map[id_client_req].find("\r\n\r\n");
     }
-    std::cout << req_map[id_client_req] << std::endl;
     return (1);
 }
 
