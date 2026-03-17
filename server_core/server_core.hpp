@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <poll.h>
 #include <vector>
+#include <map>
+
 
 class Server_core
 {
@@ -17,12 +19,15 @@ class Server_core
     socklen_t   client_len;
     struct pollfd   tmp_pol;
     std::vector<struct pollfd>  vec_poll;
+    std::map<int, std::string> req_map;
     bool client_connection();
     bool client_request(int id_client_req);
+
 
     public:
     bool server_init();
     bool server_starting();
     // ~Server_core();
+    
 
 };

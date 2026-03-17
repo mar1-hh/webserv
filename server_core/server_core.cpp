@@ -31,12 +31,25 @@ bool Server_core::client_request(int id_client_req)
 {
     char buffer[1024];
     int bytes;
-
+    std::string tmp;
+    size_t  pos;
     bytes = recv(id_client_req, buffer, 1000, 0);
+    if (bytes <= 0)
+        return (0);
     buffer[bytes] = 0;
-    std::cout << buffer << std::endl;
+    tmp = buffer;
+    req_map[id_client_req] += buffer;
+    pos = req_map[id_client_req].find("\r\n\r\n");
+    while (pos != std::string::npos)
+    {
+        //jawade parsing
+        req_map[id_client_req].erase(0, pos + 4);
+        pos = req_map[id_client_req].find("\r\n\r\n");
+    }
+    std::cout << req_map[id_client_req] << std::endl;
     return (1);
 }
+
 
 bool Server_core::server_starting()
 {
@@ -54,7 +67,8 @@ bool Server_core::server_starting()
                 client_connection();
             else if ((vec_poll[i].revents & POLL_IN) && vec_poll[i].fd != server_id)
             {
-                client_request(vec_poll[i].fd);
+                if (!client_request(vec_poll[i].fd))
+                    vec_poll.erase(vec_poll.begin() + i);
             }
         }
     }
