@@ -27,16 +27,19 @@ std::vector<std::string>split(std::string line, char del)
 }
 enum states{
     GLOBAL,
-    INSERVER,
+    IN_SERVER,
+    IN_LOCATION
 
-}
+};
 void parser(std::vector<Server> servers)
 {
     Location lc_data;
     Server sv_data;
+    Server *currentServer;
     std::string line;
     std::ifstream file("config.conf");
     bool inside_ser = 0;
+    states state;
     if(!file.is_open())
     {
         std::cerr << "Error, Cant open the file" << std::endl;
@@ -52,9 +55,9 @@ void parser(std::vector<Server> servers)
         }
         if (tokens[0] == "server") {
             if (tokens.size() != 2 || tokens[1] != "{") {
-                throw std::runtime_error("Invalid server block");
+                std::cerr << "Error, Bad token!" << std::endl;
+                return;
             }
-
             servers.push_back(sv_data);
             currentServer = &servers.back();
             state = IN_SERVER;
