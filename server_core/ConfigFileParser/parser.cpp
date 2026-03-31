@@ -12,15 +12,24 @@ std::vector<std::string>split(std::string line, char del)
     while(i < line.size())
     {
         token += line[i];
-        if (line[i++] == del) {
+        if (line[i] == del) {
             tokeens.push_back(token);
             token.clear();
         }
+        else if (line[i] == ';' || line[i] == '{' || line[i] == '}')
+        {
+            if (!token.empty()) {
+                tokeens.push_back(token);
+                token.clear();
+            }
+            tokeens.push_back(std::string(1, line[i]));
+        }
+        else
+            token += line[i];
+        i++;
     }
-    if (line[i] != '\0' && line[i - 1] != del) {
+    if (!token.empty())
         tokeens.push_back(token);
-        token.clear();
-    }
     return tokeens;
 }
 enum states{
@@ -28,14 +37,17 @@ enum states{
     IN_SERVER,
     IN_LOCATION
 };
-bool is_nb(std::string nb)
+bool is_nb(std::string& nb)
 {
-    for (int i = 0; i < 1; i++) {
+    if (nb.empty()) {
+        return false;
+    }
+    for (int i = 0; i < nb.size(); i++) {
         if (!isdigit(nb[i])) {
-            return 0;
+            return false;
         }
     }
-    return 1;
+    return false;
 }
 void parser(std::vector<Server>& servers)
 {
@@ -45,7 +57,7 @@ void parser(std::vector<Server>& servers)
     std::string line;
     std::ifstream file("config.conf");
     bool inside_ser = 0;
-    states state;
+    states state = GLOBAL;
     if(!file.is_open())
     {
         std::cerr << "Error, Cant open the file" << std::endl;
