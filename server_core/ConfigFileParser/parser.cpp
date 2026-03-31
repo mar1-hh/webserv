@@ -1,7 +1,5 @@
 #include "parser.hpp"
-
 #include "fstream"
-
 #include <vector>
 
 std::vector<std::string>split(std::string line, char del)
@@ -11,10 +9,10 @@ std::vector<std::string>split(std::string line, char del)
 
     std::string token;
     std::vector<std::string> tokeens;
-    while(line[i] != '\0')
+    while(i < line.size())
     {
         token += line[i];
-        if (line[i] == del) {
+        if (line[i++] == del) {
             tokeens.push_back(token);
             token.clear();
         }
@@ -29,9 +27,17 @@ enum states{
     GLOBAL,
     IN_SERVER,
     IN_LOCATION
-
 };
-void parser(std::vector<Server> servers)
+bool is_nb(std::string nb)
+{
+    for (int i = 0; i < 1; i++) {
+        if (!isdigit(nb[i])) {
+            return 0;
+        }
+    }
+    return 1;
+}
+void parser(std::vector<Server>& servers)
 {
     Location lc_data;
     Server sv_data;
@@ -45,28 +51,76 @@ void parser(std::vector<Server> servers)
         std::cerr << "Error, Cant open the file" << std::endl;
         return;
     }
-    while (!line.empty()) {
-        getline(file, line);
-        std::vector<std::string> tokens = split(line, '\n');
-        if(tokens.empty())
+    int i;
+    while (getline(file, line)) {
+        i = 0;
+        std::vector<std::string> tokens = split(line, ' ');
+        for (int i = 0; i < tokens.size(); i++)
         {
-            std::cerr << "Error, Failed to get tokens" << std::endl;
-            return;
-        }
-        if (tokens[0] == "server") {
-            if (tokens.size() != 2 || tokens[1] != "{") {
-                std::cerr << "Error, Bad token!" << std::endl;
+            if(tokens.empty())
+            {
+                std::cerr << "Error, Failed to get tokens" << std::endl;
                 return;
             }
-            servers.push_back(sv_data);
-            currentServer = &servers.back();
-            state = IN_SERVER;
+            if (tokens[i] == "server") {
+                if (tokens.size() != i+2 || tokens[i+1] != "{") {
+                    std::cerr << "Error, Bad token!" << std::endl;
+                    return;
+                }
+                servers.push_back(sv_data);
+                currentServer = &servers.back();
+                state = IN_SERVER;
+                i++;
+            }
+            if (tokens[i] == "location") {
+                if (servers.empty()) {
+                    std::cerr << "Error, No Server yet!" << std::endl;
+                    return;
+                }
+                if (tokens.size() < 3 || tokens[i+2] != "{") {
+                    std::cerr << "Error, Bad token!" << std::endl;
+                    return;
+                }
+                currentServer = &servers.back();
+                lc_data.path = tokens[i + 1];
+                currentServer->locations.push_back(lc_data);
+                state = IN_LOCATION;
+                i++;
+            }
+            if (state == IN_SERVER) {
+                if (tokens[i] == "listen") {
+                    if (!is_nb(tokens[i+1]) || tokens[i+2] != ";") {
+                        std::cerr << "Error, Bad token!" << std::endl;
+                        return;
+                    }
+                    currentServer = &servers.back();
+                    currentServer->port = atoi(tokens[i+1].c_str());
+                }
+                if (tokens[i] == "root") {
+                    if (tokens[i+2] != ";") {
+                        std::cerr << "Error, Bad token!" << std::endl;
+                        return;
+                    }
+                    currentServer = &servers.back();
+                    currentServer->root = tokens[i+1];
+                }
+            }
+            if (tokens[i] == "}") {
+                i++;
+                if (state == IN_LOCATION)
+                    state = IN_SERVER;
+                else if (state == IN_SERVER)
+                    state = GLOBAL;
+                else
+                {
+                    std::cerr << "Error, Bad token!" << std::endl;
+                    return;
+                }
+            }
+        
         }
+
     }
-
-
-
-
 
 
     file.close();
