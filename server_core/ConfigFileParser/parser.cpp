@@ -49,6 +49,7 @@ bool is_nb(const std::string& nb)
     }
     return true;
 }
+
 void parser(std::vector<Server>& servers)
 {
     Location lc_data;
@@ -206,6 +207,7 @@ void parser(std::vector<Server>& servers)
                 else
                 {
                     std::cerr << "Error, Bad token!" << std::endl;
+                    std::cout << state << std::endl;
                     return;
                 }
             }

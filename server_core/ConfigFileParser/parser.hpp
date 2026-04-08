@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <vector>
+#include <map>
 
 
 typedef struct Location {
@@ -26,5 +27,7 @@ typedef struct Server {
     std::map<int, std::string> error_pages;  
     size_t max_body_size;     
 } Server;
+
+void parser(std::vector<Server>& servers);
 
 #endif
