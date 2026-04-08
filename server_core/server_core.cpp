@@ -26,7 +26,7 @@ bool Server_core::server_init()
         listen(server_id, 10);
         sock_vector.push_back(server_id);
         tmp_pol.fd = server_id;
-        tmp_pol.events = POLL_IN;
+        tmp_pol.events = POLLIN;
         tmp_pol.revents = 0;
         vec_poll.push_back(tmp_pol);
     }
@@ -40,7 +40,7 @@ bool Server_core::client_connection(int server_fd)
     {
         std::cout << "the client connected" << std::endl;
         tmp_pol.fd = client_id;
-        tmp_pol.events = POLL_IN;
+        tmp_pol.events = POLLIN;
         tmp_pol.revents = 0;
         vec_poll.push_back(tmp_pol);
 
@@ -88,9 +88,9 @@ bool Server_core::server_starting()
         poll(&vec_poll[0], vec_poll.size(), -1);
         for (int i = 0; i < vec_poll.size(); i++)
         {
-            if (is_server(vec_poll[i].fd) && (vec_poll[i].revents & POLL_IN))
+            if (is_server(vec_poll[i].fd) && (vec_poll[i].revents & POLLIN))
                 client_connection(vec_poll[i].fd);
-            else if (vec_poll[i].revents & POLL_IN)
+            else if (vec_poll[i].revents & POLLIN)
             {
                 if (!client_request(vec_poll[i].fd))
                     vec_poll.erase(vec_poll.begin() + i);

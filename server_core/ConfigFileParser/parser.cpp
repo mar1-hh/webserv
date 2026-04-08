@@ -11,10 +11,11 @@ std::vector<std::string>split(const std::string line, char del)
     std::vector<std::string> tokeens;
     while(i < line.size())
     {
-        token += line[i];
         if (line[i] == del) {
-            tokeens.push_back(token);
-            token.clear();
+            if (!token.empty()) {
+                tokeens.push_back(token);
+                token.clear();
+            }
         }
         else if (line[i] == ';' || line[i] == '{' || line[i] == '}')
         {
@@ -66,6 +67,7 @@ void parser(std::vector<Server>& servers)
     int i;
     while (getline(file, line)) {
         i = 0;
+        // std::cout << line << std::endl;
         std::vector<std::string> tokens = split(line, ' ');
         for (i = 0; i < (int)tokens.size(); i++)
         {
@@ -74,6 +76,7 @@ void parser(std::vector<Server>& servers)
                 std::cerr << "Error, Failed to get tokens" << std::endl;
                 return;
             }
+            // std::cout << tokens[i] << std::endl;
             if (tokens[i] == "server") {
                 if (tokens.size() < i+2 || tokens[i+1] != "{") {
                     std::cerr << "Error, Bad token after server!" << std::endl;
@@ -85,6 +88,7 @@ void parser(std::vector<Server>& servers)
                 i++;
             }
             else if (tokens[i] == "location") {
+                state = IN_LOCATION;
                 if (servers.empty()) {
                     std::cerr << "Error, No Server yet!" << std::endl;
                     return;
@@ -96,7 +100,6 @@ void parser(std::vector<Server>& servers)
                 lc_data = Location();
                 lc_data.path = tokens[i + 1];
                 currentServer->locations.push_back(lc_data);
-                state = IN_LOCATION;
                 i += 2;
             }
             else if (state == IN_SERVER && tokens[i] == "listen") {
@@ -207,7 +210,6 @@ void parser(std::vector<Server>& servers)
                 else
                 {
                     std::cerr << "Error, Bad token!" << std::endl;
-                    std::cout << state << std::endl;
                     return;
                 }
             }
