@@ -1,4 +1,5 @@
 #include "server_core.hpp"
+#include "../request-responce/HttpRequest.hpp"
 
 Server_core::Server_core(std::vector<Server>& servers) : serv(servers) {};
 
@@ -61,7 +62,8 @@ bool Server_core::client_request(int id_client_req)
     char buffer[1024];
     int bytes;
     std::string tmp;
-    size_t  pos;
+    std::string tmp2;
+    size_t pos;
     bytes = recv(id_client_req, buffer, 1000, 0);
     if (bytes <= 0)
         return (0);
@@ -73,7 +75,10 @@ bool Server_core::client_request(int id_client_req)
     {
         tmp = req_map[id_client_req].substr(0, pos + 4);
         std::cout << tmp << std::endl;
-        //jawade parsing(tmp)
+        //jbelkerf part 
+        HttpRequest req;
+        tmp2 = buffer;
+        req.feed(tmp, tmp2.substr(pos + 4));
         req_map[id_client_req].erase(0, pos + 4);
         pos = req_map[id_client_req].find("\r\n\r\n");
     }

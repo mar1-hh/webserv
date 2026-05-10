@@ -1,27 +1,6 @@
 #include "HttpRequest.hpp"
 
-void display_request(const HttpRequest &r)
-{
-    std::cout << "\n";
-    std::cout << "┌─────────────────────────────────────────┐" << std::endl;
-    std::cout << "│           HTTP REQUEST PARSED            │" << std::endl;
-    std::cout << "└─────────────────────────────────────────┘" << std::endl;
 
-    std::cout << "\n[ REQUEST LINE ]" << std::endl;
-    std::cout << "  Method      : " << r.getMethod() << std::endl;
-    std::cout << "  URI         : " << r.getUri() << std::endl;
-    std::cout << "  Path        : " << r.getPath() << std::endl;
-    std::cout << "  Query       : " << r.getQuery() << std::endl;
-    std::cout << "  HTTP Ver    : " << r.getHttpVersion() << std::endl;
-
-    std::cout << "\n[ HEADERS ]" << std::endl;
-    std::map<std::string, std::string> headers = r.getHeaders();
-    std::map<std::string, std::string>::iterator it;
-    for (it = headers.begin(); it != headers.end(); it++)
-        std::cout << "  '" << it->first << "' : " << it->second << std::endl;
-
-    std::cout << "  Body    : " << r.getBody() << std::endl;
-}
 
 
 int main() {

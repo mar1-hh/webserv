@@ -65,7 +65,7 @@ class HttpRequest{
 
         HttpRequest(void);
         //parsing 
-        void feed(std::string raw);
+        void feed(std::string raw, std::string buffer);
         bool isComplete() const;
         bool hasError() const;
         t_parseError getError() const;
