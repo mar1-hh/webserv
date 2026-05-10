@@ -1,14 +1,11 @@
 import requests
 
-ip = "127.0.0.1"
-port = 8080
-BASE = f"http://{ip}:{port}"
-
 passed = 0
 failed = 0
 
-def test(name, method, path, params=None, data=None, headers=None, expected_status=None):
+def test(name, method, path, port=8080, params=None, data=None, headers=None, expected_status=None):
     global passed, failed
+    BASE = f"http://127.0.0.1:{port}"
     url = BASE + path
     try:
         if method == "GET":
@@ -25,68 +22,105 @@ def test(name, method, path, params=None, data=None, headers=None, expected_stat
         else:
             failed += 1
 
-        print(f"{symbol} [{method}] {path}")
-        print(f"   status  : {res.status_code}")
+        print(f"{symbol} [{method}] :{port}{path} → {name}")
+        print(f"   status  : {res.status_code} (expected {expected_status})")
         if params:
             print(f"   params  : {params}")
         if data:
-            print(f"   body    : {data}")
+            print(f"   body    : {str(data)[:80]}")
         print(f"   response: {res.text[:100]}")
         print()
 
     except requests.exceptions.ConnectionError:
         failed += 1
-        print(f"💀 [{method}] {path} → connection refused (server down?)\n")
+        print(f"💀 [{method}] :{port}{path} → connection refused (server down?)\n")
     except requests.exceptions.Timeout:
         failed += 1
-        print(f"⏱️  [{method}] {path} → timeout\n")
+        print(f"⏱️  [{method}] :{port}{path} → timeout\n")
 
 
-print("=" * 50)
-print("        WEBSERV TEST SUITE")
-print("=" * 50 + "\n")
+print("=" * 55)
+print("            WEBSERV TEST SUITE")
+print("=" * 55 + "\n")
 
-# ── GET requests ──────────────────────────────────────
-test("GET index",           "GET",  "/",                                            expected_status=200)
-test("GET static file",     "GET",  "/index.html",                                  expected_status=200)
-test("GET with query",      "GET",  "/search",      params={"q": "hello"},          expected_status=200)
-test("GET multi query",     "GET",  "/filter",      params={"page": "1", "limit": "10", "sort": "asc"}, expected_status=200)
-test("GET not found",       "GET",  "/notexist",                                    expected_status=404)
-test("GET deep path",       "GET",  "/api/users/42",                                expected_status=200)
+# ──────────────────────────────────────────────────────
+# SERVER 1 — port 8080 — root ./www/site1
+# locations: /  (GET only)
+#            /images (GET only, autoindex on)
+# max_body_size: 1000000
+# ──────────────────────────────────────────────────────
+print("── SERVER 1 (port 8080) ──────────────────────────────\n")
 
-# ── POST requests ─────────────────────────────────────
-test("POST form body",      "POST", "/submit",
-     data={"username": "jawad", "password": "1337"},                                expected_status=200)
+# location / → GET allowed
+test("GET index page",          "GET",  "/",            port=8080, expected_status=200)
+test("GET index.html directly", "GET",  "/index.html",  port=8080, expected_status=200)
+test("GET with query string",   "GET",  "/",            port=8080,
+     params={"lang": "cpp", "version": "98"},           expected_status=200)
 
-test("POST with query+body","POST", "/submit",
-     params={"source": "web"},
-     data={"username": "ali", "email": "ali@1337.ma"},                              expected_status=200)
+# location /images → GET allowed, autoindex on
+test("GET images autoindex",    "GET",  "/images",      port=8080, expected_status=200)
+test("GET image file",          "GET",  "/images/logo.png", port=8080, expected_status=200)
 
-test("POST large body",     "POST", "/upload",
-     data={"file_content": "A" * 5000, "filename": "test.txt"},                     expected_status=200)
+# method not allowed on server1
+test("POST on / → 405",         "POST", "/",            port=8080,
+     data={"key": "value"},                             expected_status=405)
+test("DELETE on / → 405",       "DELETE", "/",          port=8080, expected_status=405)
+test("POST on /images → 405",   "POST", "/images",      port=8080,
+     data={"key": "value"},                             expected_status=405)
 
-test("POST empty body",     "POST", "/submit",
-     data={},                                                                        expected_status=400)
+# no matching location
+test("GET unknown path → 404",  "GET",  "/notexist",    port=8080, expected_status=404)
+test("GET 404 error page",      "GET",  "/missing.html",port=8080, expected_status=404)
 
-test("POST json-like body", "POST", "/api/create",
-     data={"name": "webserv", "version": "1.0", "lang": "cpp"},                     expected_status=200)
+# max_body_size = 1000000 — send just under and just over
+test("POST body under limit",   "POST", "/",            port=8080,
+     data={"data": "A" * 999990},                       expected_status=405) # POST not allowed anyway
+test("GET with long query",     "GET",  "/",            port=8080,
+     params={"q": "x" * 500},                           expected_status=200)
 
-test("POST custom header",  "POST", "/submit",
-     data={"msg": "hello"},
-     headers={"X-Custom-Header": "42network"},                                       expected_status=200)
 
-# ── DELETE requests ───────────────────────────────────
-test("DELETE resource",     "DELETE", "/files/test.txt",                            expected_status=200)
-test("DELETE not found",    "DELETE", "/files/ghost.txt",                           expected_status=404)
-test("DELETE with query",   "DELETE", "/files/old.txt", params={"confirm": "true"}, expected_status=200)
+# ──────────────────────────────────────────────────────
+# SERVER 2 — port 9090 — root ./www/site2
+# locations: /         (GET POST)
+#            /upload   (POST only, upload enabled)
+#            /redirect (301 → http://example.com)
+# max_body_size: 2000000
+# ──────────────────────────────────────────────────────
+print("── SERVER 2 (port 9090) ──────────────────────────────\n")
 
-# ── Edge cases ────────────────────────────────────────
-test("GET double slash",    "GET",  "//index.html",                                 expected_status=200)
-test("GET empty path",      "GET",  "/",                                            expected_status=200)
-test("GET special chars",   "GET",  "/search",      params={"q": "hello world!"},   expected_status=200)
-test("GET encoded uri",     "GET",  "/path%20with%20spaces",                        expected_status=404)
+# location / → GET and POST allowed
+test("GET home page",           "GET",  "/",            port=9090, expected_status=200)
+test("GET home.html directly",  "GET",  "/home.html",   port=9090, expected_status=200)
+test("POST to /",               "POST", "/",            port=9090,
+     data={"username": "jawad", "password": "1337"},    expected_status=200)
+test("POST with query + body",  "POST", "/",            port=9090,
+     params={"source": "test"},
+     data={"name": "42network"},                        expected_status=200)
 
-# ── Summary ───────────────────────────────────────────
-print("=" * 50)
+# DELETE not allowed on /
+test("DELETE on / → 405",       "DELETE", "/",          port=9090, expected_status=405)
+
+# location /upload → POST only
+test("POST upload small file",  "POST", "/upload",      port=9090,
+     data={"file_content": "hello world", "filename": "test.txt"}, expected_status=200)
+test("POST upload large body",  "POST", "/upload",      port=9090,
+     data={"file_content": "B" * 1000000},              expected_status=200)
+test("POST upload over limit",  "POST", "/upload",      port=9090,
+     data={"file_content": "C" * 2000001},              expected_status=413) # too large
+test("GET on /upload → 405",    "GET",  "/upload",      port=9090, expected_status=405)
+test("DELETE on /upload → 405", "DELETE", "/upload",    port=9090, expected_status=405)
+
+# location /redirect → 301
+test("GET redirect → 301",      "GET",  "/redirect",    port=9090, expected_status=301)
+test("POST redirect → 301",     "POST", "/redirect",    port=9090,
+     data={"x": "y"},                                   expected_status=301)
+
+# no matching location
+test("GET unknown → 404",       "GET",  "/ghost",       port=9090, expected_status=404)
+test("GET deep unknown → 404",  "GET",  "/api/v1/test", port=9090, expected_status=404)
+
+
+# ──────────────────────────────────────────────────────
+print("=" * 55)
 print(f"  Results: {passed} passed  |  {failed} failed")
-print("=" * 50)
+print("=" * 55)

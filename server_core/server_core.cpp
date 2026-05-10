@@ -1,5 +1,6 @@
 #include "server_core.hpp"
 #include "../request-responce/HttpRequest.hpp"
+#include "../request-responce/HttpResponce.hpp"
 
 Server_core::Server_core(std::vector<Server>& servers) : serv(servers) {};
 
@@ -79,7 +80,10 @@ bool Server_core::client_request(int id_client_req)
         HttpRequest req;
         tmp2 = buffer;
         req.feed(tmp, tmp2.substr(pos + 4));
-        req_map[id_client_req].erase(0, pos + 4);
+        HttpResponce resp(req, *server_client[id_client_req]);
+        std::string raw = resp.getResponce();
+        send(id_client_req, raw.c_str(), raw.length(), 0);
+        req_map[id_client_req].erase(0, pos + 4 + req.getContentLength());
         pos = req_map[id_client_req].find("\r\n\r\n");
     }
     return (1);

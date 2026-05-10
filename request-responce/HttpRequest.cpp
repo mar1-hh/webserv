@@ -191,3 +191,7 @@ bool HttpRequest::hasError() const{
 t_parseError HttpRequest::getError() const{
     return this->_state._error;
 }
+
+size_t HttpRequest::getContentLength() const{
+    return this->content_length;
+}
