@@ -7,6 +7,7 @@ class Server_core;
 class HttpResponce {
 private:
     Location _location;
+    std::string real_path;
     HttpRequest &req;
     Server &server;
 
