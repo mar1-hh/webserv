@@ -3,6 +3,9 @@
 #include <iostream>
 #include <exception>
 #include <map>
+#include <vector>
+#include <algorithm>
+class Server_core;
 
 typedef enum ParseState
 {
@@ -11,7 +14,7 @@ typedef enum ParseState
     BODY,
     COMPLETE,
     ERROR
-}t_parseState;
+} t_parseState;
 
 typedef enum ParseError
 {
@@ -63,9 +66,9 @@ class HttpRequest{
                 virtual const char *what() const throw();
         };
 
-        HttpRequest(void);
+        HttpRequest();
         //parsing 
-        void feed(std::string raw);
+        void feed(std::string raw, std::string buffer);
         bool isComplete() const;
         bool hasError() const;
         t_parseError getError() const;

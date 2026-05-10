@@ -1,5 +1,28 @@
 #include "HttpRequest.hpp"
 
+void display_request(const HttpRequest &r)
+{
+    std::cout << "\n";
+    std::cout << "┌─────────────────────────────────────────┐" << std::endl;
+    std::cout << "│           HTTP REQUEST PARSED            │" << std::endl;
+    std::cout << "└─────────────────────────────────────────┘" << std::endl;
+
+    std::cout << "\n[ REQUEST LINE ]" << std::endl;
+    std::cout << "  Method      : " << r.getMethod() << std::endl;
+    std::cout << "  URI         : " << r.getUri() << std::endl;
+    std::cout << "  Path        : " << r.getPath() << std::endl;
+    std::cout << "  Query       : " << r.getQuery() << std::endl;
+    std::cout << "  HTTP Ver    : " << r.getHttpVersion() << std::endl;
+
+    std::cout << "\n[ HEADERS ]" << std::endl;
+    std::map<std::string, std::string> headers = r.getHeaders();
+    std::map<std::string, std::string>::iterator it;
+    for (it = headers.begin(); it != headers.end(); it++)
+        std::cout << "  '" << it->first << "' : " << it->second << std::endl;
+
+    std::cout << "  Body    : " << r.getBody() << std::endl;
+    std::cout << std::endl << std::endl;
+}
 /*
 POST /submit HTTP/1.1\r\n                        ← request line
 Host: localhost:8080\r\n                         ← header 1
@@ -16,6 +39,8 @@ HttpRequest::HttpRequest(){
     method = "";
     query = "";
     http_ver = "";
+    is_chuncked = false;
+    content_length = 0;
 
 }
 
@@ -81,6 +106,7 @@ std::string getnextline(std::string &lines){
 }
 
 void HttpRequest::parseHeaders(){
+    this->_state._state = HEADERS;
     std::string lines = _raw;
     std::string line;
     std::string key;
@@ -103,7 +129,7 @@ void HttpRequest::parseHeaders(){
         }
     }
 }
-void HttpRequest::feed(std::string raw)
+void HttpRequest::feed(std::string raw, std::string buffer)
 {
     _raw = raw;
     parseRequestLine();
@@ -112,21 +138,19 @@ void HttpRequest::feed(std::string raw)
     
     if (headers.find("Content-Length") != headers.end())
     {
-        std::string contentType = headers["Content-Type"];
-        if (contentType == "chuncked")
+        this->content_length = atoi(headers["Content-Length"].c_str());
+        this->_state._state = BODY;
+        std::string TransferEncoding = headers["Transfer-Encoding"];
+        if (TransferEncoding == "chunked")
         {
             is_chuncked = true;
             return;
         }
-        else
-        {
-            size_t pos = _raw.find("\r\n\r\n");
-            if (pos != std::string::npos)
-            {
-                body = _raw.substr(pos + 4);
-            }
-        }
+
+        body = buffer.substr(0, content_length);
     }
+    this->_state._state = COMPLETE;
+    display_request(*this);
 }
 
 //getters
@@ -154,4 +178,20 @@ std::map<std::string, std::string> HttpRequest::getHeaders() const{
 }
 std::string HttpRequest::getBody() const{
     return this->body;
+}
+
+bool HttpRequest::isComplete() const{
+    return (this->_state._state == COMPLETE);
+}
+
+bool HttpRequest::hasError() const{
+    return this->_state._state == ERROR;
+}
+
+t_parseError HttpRequest::getError() const{
+    return this->_state._error;
+}
+
+size_t HttpRequest::getContentLength() const{
+    return this->content_length;
 }
