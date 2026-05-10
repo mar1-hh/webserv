@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>500 Internal Server Error | Webserv</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #cc44ff;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        .code {
+            font-size: 120px;
+            font-weight: bold;
+            opacity: 0.15;
+            line-height: 1;
+        }
+
+        .icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 32px;
+            letter-spacing: 6px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #555;
+            font-size: 14px;
+            margin-bottom: 30px;
+        }
+
+        .trace {
+            background: #111;
+            border: 1px solid #2a1a3a;
+            border-left: 3px solid #cc44ff;
+            padding: 16px 24px;
+            border-radius: 4px;
+            color: #666;
+            font-size: 12px;
+            text-align: left;
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+
+        a {
+            color: #cc44ff;
+            text-decoration: none;
+            border-bottom: 1px solid #cc44ff;
+            font-size: 13px;
+        }
+
+        .footer {
+            margin-top: 60px;
+            color: #222;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="code">500</div>
+        <div class="icon">💥</div>
+        <h1>INTERNAL SERVER ERROR</h1>
+        <p class="subtitle">Something went wrong on our end</p>
+        <div class="trace">
+            Error: Unexpected server condition<br>
+            The server encountered an internal error<br>
+            and was unable to complete your request
+        </div>
+        <a href="/">← Back to Home</a>
+        <div class="footer">HTTP/1.1 500 Internal Server Error</div>
+    </div>
+</body>
+
+</html>
