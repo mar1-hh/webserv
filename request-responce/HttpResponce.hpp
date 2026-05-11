@@ -10,6 +10,7 @@ private:
     std::string real_path;
     HttpRequest &req;
     Server &server;
+    std::string dircontent;
 
     size_t status_code;
     std::string status_message;
@@ -23,6 +24,9 @@ public:
     bool validateLocation();
     bool validateMethod();
 
+    void handleDir();
+    void handleindex();
+    void handleListing();
 
     std::string getResponce() const;
 };
