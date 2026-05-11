@@ -195,3 +195,10 @@ t_parseError HttpRequest::getError() const{
 size_t HttpRequest::getContentLength() const{
     return this->content_length;
 }
+
+std::string HttpRequest::getHeader(const std::string &key) const{
+    std::map<std::string, std::string>::const_iterator value_it = headers.find(key);
+    if (value_it == headers.end())
+        return "";
+    return value_it->second;
+}
