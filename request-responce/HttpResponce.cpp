@@ -1,8 +1,13 @@
 #include "HttpResponce.hpp"
+#include <sstream>
 #include <fcntl.h>
 #include <unistd.h>
-#include <sstream>
+#include <sys/stat.h>
+#include <dirent.h>
 
+void debug(std::string a, std::string b){
+    std::cout << a << "  " << b << std::endl;
+}
 void display_response(const HttpResponce &r)
 {
     std::cout << "\n";
@@ -21,6 +26,7 @@ void display_response(const HttpResponce &r)
 
 HttpResponce::HttpResponce(HttpRequest &request, Server &serv): req(request), server(serv){
     status_code = 200;
+    dircontent = "";
     proccess();
     craftResponce();
     display_response(*this);
@@ -40,8 +46,8 @@ bool HttpResponce::validateLocation(){
             if ((*it).path.length() > best_length){
                 best_length = (*it).path.length();
                 _location = *it;
+                found = true;
             }
-            found = true;
         }
         it++;
     }
@@ -56,7 +62,7 @@ bool HttpResponce::validateLocation(){
         if (req.getMethod() == "GET"){
             size_t fileFd = open(real_path.c_str(), 0);
             if (fileFd == -1)
-                found = false;
+                ;
             else
             {
                 close(fileFd);
@@ -69,11 +75,7 @@ bool HttpResponce::validateLocation(){
 bool HttpResponce::validateMethod(){
     std::vector<std::string>::iterator it = _location.methods.begin();
     if (it == _location.methods.end())
-    {
-        status_code = 301;
-        status_message = "301 Moved Permanently";
         return true;
-    }
     while (it != _location.methods.end())
     {
         if (req.getMethod() == *it)
@@ -84,6 +86,7 @@ bool HttpResponce::validateMethod(){
 }
 
 void HttpResponce::proccess(){
+    status_message = "200 OK";
     if (!validateLocation())
     {
         status_code = 404;
@@ -96,13 +99,12 @@ void HttpResponce::proccess(){
         status_message = "405 Method Not Allowed";
         return;
     }
-    if (req.getMethod() == "POST" && atoi(req.getHeader("Content-length").c_str()) >server.max_body_size)
+    if (req.getMethod() == "POST" && atoi(req.getHeader("Content-Length").c_str()) >server.max_body_size)
     {
         status_code = 413;
         status_message = "413 Content Too Large";
         return;
     }
-    status_message = "200 OK";
 }
 
 //getter 
@@ -116,27 +118,86 @@ std::string intToString(int n)
     return oss.str();
 }
 
+void HttpResponce::handleListing(){
+    struct dirent *entry;
+
+    real_path += req.getPath();
+    std::cout << "path is " << real_path << std::endl;
+    DIR *dir = opendir(real_path.c_str());
+    if (dir == NULL)
+    {
+        status_code = 404;
+        return;
+    }
+    dircontent = "<!DOCTYPE html><html><head><title> Files</title></head><body><h1> Directory Listing</h1><ul>";
+    while ((entry = readdir(dir)) != NULL)
+    {
+        dircontent += "<li><a href=\"" + _location.path +"/"+entry->d_name+ "\">" + entry->d_name + "</a></li>";
+    }
+    dircontent += "</ul></body></html>";
+}
+
+void HttpResponce::handleindex(){
+    if (real_path[real_path.length() - 1] == '/')
+        real_path[real_path.length() - 1] = '\0';
+    real_path += req.getPath() + "/" + _location.default_file;
+    std::cout << "path with index is " << real_path << std::endl;
+}
+
+void HttpResponce::handleDir(){
+    debug("dir  endert", "  ");
+    if (_location.directory_listing)
+        return handleListing();
+    handleindex();
+    
+}
+
 void HttpResponce::craftResponce(){
     char buff[10001] = {0};
     std::string lenght;
-    if (status_code != 200)
+    struct stat sb;
+
+    stat(real_path.c_str(), &sb);
+    if (S_ISDIR(sb.st_mode))
+        handleDir();
+    else if (S_ISREG(sb.st_mode))
+        ;
+    else
+        status_code = 404;
+
+    if (status_code != 200 && status_code != 301)
     {
-        real_path = server.root +"/" + server.error_pages[status_code];
+        std::string errorpage = server.error_pages[status_code];
+        if (errorpage == "")
+            errorpage = server.error_pages[404];
+        
+        real_path = server.root + "/" + errorpage;
+            
+            
         std::cout << "error path is " << real_path << std::endl;
     }
     // handle redirection
     if (status_code == 301)
     {
+        std::cout << "location " << _location.path << " redirection  " << _location.redirection << std::endl;
         status_message += "\r\nLocation: " + _location.redirection;
     }
+    size_t fileSize;
     if (req.getMethod() == "GET")
     {
         size_t fileFd = open(real_path.c_str(), 0);
-        size_t fileSize = read(fileFd, buff, 10000);
+        fileSize = read(fileFd, buff, 10000);
         if (fileSize == -1)
             fileSize = 0;
         lenght = intToString(fileSize);
     }
-    responce = "HTTP/1.1 " + status_message + "\r\nContent-Type: text/html\r\nContent-Length: "+ lenght + "\r\nConnection: keep-alive\r\n\r\n";
-    responce += buff;
+    std::string buff2 = buff;
+    if (dircontent != "")
+    {
+        buff2 = dircontent;
+        fileSize = dircontent.length();
+        lenght = intToString(fileSize);
+    }
+    responce = "HTTP/1.1 " + status_message + "\r\nContent-Type: text/html\r\nContent-Length: " + lenght + "\r\nConnection: keep-alive\r\n\r\n";
+    responce += buff2;
 }
