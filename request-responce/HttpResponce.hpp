@@ -19,12 +19,17 @@ private:
 public:
     HttpResponce(HttpRequest &request, Server &serv);
     void proccess();
+    void HandleGet();
+    void HandlePost();
+    void HandleDelete();
     void craftResponce();
+
+    void readFile();
+    void handleDir();
 
     bool validateLocation();
     bool validateMethod();
 
-    void handleDir();
     void handleindex();
     void handleListing();
 

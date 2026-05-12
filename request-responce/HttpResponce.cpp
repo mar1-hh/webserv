@@ -42,7 +42,7 @@ bool HttpResponce::validateLocation(){
         
         if (location.find((*it).path) == 0)
         {
-            std::cout << "got path " << (*it).path << std::endl;
+            std::cout << "got location default file " << (*it).default_file << std::endl;
             if ((*it).path.length() > best_length){
                 best_length = (*it).path.length();
                 _location = *it;
@@ -60,7 +60,7 @@ bool HttpResponce::validateLocation(){
             real_path = _location.root + "/" + real_path;
 
         if (req.getMethod() == "GET"){
-            size_t fileFd = open(real_path.c_str(), 0);
+            int fileFd = open(real_path.c_str(), 0);
             if (fileFd == -1)
                 ;
             else
@@ -85,12 +85,33 @@ bool HttpResponce::validateMethod(){
     return false;
 }
 
+void HttpResponce::readFile(){
+    ;
+}
+
+void HttpResponce::HandleGet(){
+    struct stat sb;
+
+    stat(real_path.c_str(), &sb);
+    if (S_ISDIR(sb.st_mode))
+        handleDir();
+    else if (S_ISREG(sb.st_mode))
+        readFile();
+    else
+        status_code = 404;
+}
+
 void HttpResponce::proccess(){
     status_message = "200 OK";
     if (!validateLocation())
     {
         status_code = 404;
         status_message = "404 Not Found";
+        return;
+    }
+    if (_location.redirection != "")
+    {
+        status_code = 301;
         return;
     }
     if (!validateMethod())
@@ -105,6 +126,12 @@ void HttpResponce::proccess(){
         status_message = "413 Content Too Large";
         return;
     }
+    // if (req.getMethod() == "GET")
+    //     HandleGet();
+    // else if (req.getMethod() == "POST")
+    //     HandlePost();
+    // else if (req.getMethod() == "DELETE")
+    //     HandleDelete();
 }
 
 //getter 
@@ -121,7 +148,6 @@ std::string intToString(int n)
 void HttpResponce::handleListing(){
     struct dirent *entry;
 
-    real_path += req.getPath();
     std::cout << "path is " << real_path << std::endl;
     DIR *dir = opendir(real_path.c_str());
     if (dir == NULL)
@@ -140,15 +166,16 @@ void HttpResponce::handleListing(){
 void HttpResponce::handleindex(){
     if (real_path[real_path.length() - 1] == '/')
         real_path[real_path.length() - 1] = '\0';
-    real_path += req.getPath() + "/" + _location.default_file;
+    real_path += "/" + _location.default_file;
     std::cout << "path with index is " << real_path << std::endl;
+    // readFile();
 }
 
 void HttpResponce::handleDir(){
-    debug("dir  endert", "  ");
-    if (_location.directory_listing)
-        return handleListing();
-    handleindex();
+    if (_location.default_file != "")
+        handleindex();
+    else if (_location.directory_listing)
+        handleListing();
     
 }
 
@@ -185,11 +212,12 @@ void HttpResponce::craftResponce(){
     size_t fileSize;
     if (req.getMethod() == "GET")
     {
-        size_t fileFd = open(real_path.c_str(), 0);
+        int fileFd = open(real_path.c_str(), 0);
         fileSize = read(fileFd, buff, 10000);
         if (fileSize == -1)
             fileSize = 0;
         lenght = intToString(fileSize);
+        close(fileFd);
     }
     std::string buff2 = buff;
     if (dircontent != "")
