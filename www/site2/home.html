@@ -1,77 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Welcome | Webserv</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Courier New', monospace;
-            background: #0a0a0a;
-            color: #00ff88;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .container {
-            text-align: center;
-        }
-
-        .logo {
-            font-size: 80px;
-            margin-bottom: 20px;
-        }
-
-        h1 {
-            font-size: 48px;
-            letter-spacing: 8px;
-            margin-bottom: 10px;
-        }
-
-        .subtitle {
-            color: #888;
-            font-size: 16px;
-            margin-bottom: 40px;
-        }
-
-        .badge {
-            display: inline-block;
-            border: 1px solid #00ff88;
-            padding: 8px 20px;
-            border-radius: 4px;
-            font-size: 13px;
-            color: #00ff88;
-            margin: 5px;
-        }
-
-        .footer {
-            margin-top: 60px;
-            color: #333;
-            font-size: 12px;
-        }
-    </style>
+    <title>Server 2 - 9090</title>
+    <style>body{background:#1a1a2e;color:#fff;font-family:sans-serif;padding:40px;} .box{background:#16213e;padding:20px;border-radius:8px;} button{padding:10px;background:#e94560;color:#fff;border:none;cursor:pointer;}</style>
 </head>
-
 <body>
-    <div class="container">
-        <div class="logo">⚡</div>
-        <h1>WEBSERV</h1>
-        <p class="subtitle">Your HTTP/1.1 server is running</p>
-        <span class="badge">C++98</span>
-        <span class="badge">42 Network</span>
-        <span class="badge">1337</span>
-        <div class="footer">GET / HTTP/1.1 → 200 OK</div>
+    <h1>Welcome to Site 2 (Port 9090)</h1>
+    <p>This server allows POST methods, uploads, and redirects.</p>
+    
+    <div class="box">
+        <h3>Test File Upload</h3>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="fileInput" name="file" required>
+            <button type="submit">Upload via POST</button>
+        </form>
+        <p id="status"></p>
     </div>
-</body>
+    
+    <br>
+    <a href="/redirect" style="color:#e94560;">Test 301 Redirect (to example.com)</a>
 
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const file = document.getElementById('fileInput').files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload', { method: 'POST', body: formData });
+                document.getElementById('status').innerText = 'Response Status: ' + response.status;
+            } catch (err) {
+                document.getElementById('status').innerText = 'Upload failed: ' + err;
+            }
+        });
+    </script>
+</body>
 </html>

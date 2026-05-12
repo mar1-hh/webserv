@@ -10,7 +10,9 @@ private:
     std::string real_path;
     HttpRequest &req;
     Server &server;
-    std::string dircontent;
+
+    std::string fileContent;
+    int fileSize;
 
     size_t status_code;
     std::string status_message;
