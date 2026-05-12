@@ -156,6 +156,7 @@ void HttpResponce::readFile(){
     if (fileFd == -1)
     {
         std::cout << "open file field" << std::endl;
+        perror("open  ");
         status_code = 404;
         status_message = "HTTP/1.1 404 Not Found";
         return;
@@ -174,6 +175,7 @@ void HttpResponce::readFile(){
     }
     close(fileFd);
     fileContent = buff;
+    std::cout << "file content " << fileContent.substr(0, 10);
     std::cout << std::endl;
     std::cout << std::endl;
 }
@@ -294,7 +296,7 @@ void HttpResponce::craftResponce(){
         std::map<int, std::string>::iterator it = server.error_pages.find(status_code);
         if (it != server.error_pages.end())
         {
-            real_path = server.root + server.error_pages[status_code];
+            real_path = server.root +"/" +server.error_pages[status_code];
             int status = status_code;
             readFile();
             status_code = status;
