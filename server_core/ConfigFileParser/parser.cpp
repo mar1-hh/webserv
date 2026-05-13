@@ -206,11 +206,11 @@ void parser(std::vector<Server> &servers)
                 currentServer->locations.back().directory_listing = (tokens[i + 1] == "on");
                 i += 2;
             }
-            else if (state == IN_LOCATION && tokens[i] == "default_file")
+            else if (state == IN_LOCATION && tokens[i] == "index")
             {
                 if (tokens.size() < i + 3 || tokens[i + 2] != ";")
                 {
-                    std::cerr << "Error, Bad default_file directive!" << std::endl;
+                    std::cerr << "Error, Bad index directive!" << std::endl;
                     return;
                 }
                 currentServer->locations.back().default_file = tokens[i + 1];
