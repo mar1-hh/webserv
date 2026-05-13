@@ -72,6 +72,7 @@ bool HttpResponce::validateLocation(){
     }
     if (found)
     {
+        debug("found location ", _location.path);
         std::string reqpath = req.getPath().substr(_location.path.length());
         real_path = server.root + _location.path + reqpath;
 
@@ -182,6 +183,7 @@ void HttpResponce::readFile(){
 
 void HttpResponce::HandleGet(){
     struct stat sb;
+    std::cout << "get trigried" << std::endl;
 
     debug("handle get path ", real_path);
     stat(real_path.c_str(), &sb);
@@ -198,27 +200,37 @@ void HttpResponce::HandleGet(){
 
 //POst
 void HttpResponce::HandlePost(){
-    if (_location.upload_enabled == true){
-        int fileFd = open(real_path.c_str(), O_TRUNC | O_WRONLY);
-        if (fileFd == -1)
-        {
-            status_code = 500;
-            status_message = "HTTP/1.1 500 Internal Server Error";
-            return ;
-        }
+    std::cout << "post trigried" << std::endl;
+    debug("location ", _location.path);
+    if (_location.upload_enabled == true)
+    {
+    debug("path to write is ", real_path);
+    int fileFd = open(real_path.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0777);
+    if (fileFd == -1)
+    {
+        perror("open :");
+        status_code = 500;
+        status_message = "HTTP/1.1 500 Internal Server Error";
+        return;
+    }
         write(fileFd, req.getBody().c_str(), req.getBody().length());
         status_code = 201;
         status_message = "HTTP/1.1 201 Created";
-    }
-    else
-    {
-        status_code = 200;
-        status_message = "HTTP/1.1 200 OK";
-    }
+        fileContent = status_message;
+        fileSize = fileContent.length();
+        close(fileFd);
+        }
+        else
+        {
+            debug("upload not enabled" , " on this location");
+            status_code = 200;
+            status_message = "HTTP/1.1 200 OK";
+        }
 }
 
 //Delete
 void HttpResponce::HandleDelete(){
+    std::cout << "delete trigried" << std::endl;
     struct stat sb;
 
     if (stat(real_path.c_str(), &sb) == -1)
@@ -256,24 +268,29 @@ void HttpResponce::proccess(){
         status_message = "HTTP/1.1 404 Not Found";
             return;
     }
+    debug("here ", "1");
     if (_location.redirection != "")
     {
         status_code = 301;
         status_message = "HTTP/1.1 301 Moved Permanently";
         return;
     }
+    debug("here ", "2");
     if (!validateMethod())
     {
         status_code = 405;
         status_message = "HTTP/1.1 405 Method Not Allowed";
         return;
     }
+    debug("server max size is ", intToString(server.max_body_size));
     if (req.getMethod() == "POST" && atoi(req.getHeader("Content-Length").c_str()) >server.max_body_size)
     {
         status_code = 413;
         status_message = "HTTP/1.1 413 Content Too Large";
         return;
     }
+    debug("here ", "3");
+    debug("the method is : ", req.getMethod());
     if (req.getMethod() == "GET")
         HandleGet();
     else if (req.getMethod() == "POST")
