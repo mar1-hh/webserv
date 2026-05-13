@@ -69,7 +69,8 @@ void HttpRequest::parseRequestLine(){
     {
         this->_state._state = ERROR;
         this->_state._error = ERR_METHOD_NOT_ALLOWED;
-        throw MethodNotAllowed();
+        std::cout << "method " << method << "path " << path;
+        return;
     }
     std::string newline = line.substr(pos + 1, line.length());
     pos = newline.find(" ");
@@ -94,7 +95,7 @@ void HttpRequest::parseRequestLine(){
 
         this->_state._state = ERROR;
         this->_state._error = ERR_VERSION_NOT_SUPPORTED;
-        throw VersionNotSupported();
+        return;
     }
 }
 std::string getnextline(std::string &lines){

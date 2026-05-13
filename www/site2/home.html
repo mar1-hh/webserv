@@ -28,7 +28,7 @@
             formData.append('file', file);
 
             try {
-                const response = await fetch('/upload', { method: 'POST', body: formData });
+                const response = await fetch('/uploads', { method: 'POST', body: formData });
                 document.getElementById('status').innerText = 'Response Status: ' + response.status;
             } catch (err) {
                 document.getElementById('status').innerText = 'Upload failed: ' + err;

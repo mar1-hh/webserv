@@ -11,7 +11,9 @@ private:
     HttpRequest &req;
     Server &server;
 
+
     std::string fileContent;
+    std::string contentType;
     int fileSize;
 
     size_t status_code;
@@ -26,6 +28,7 @@ public:
     void HandleDelete();
     void craftResponce();
 
+    void setFileType();
     void readFile();
     void handleDir();
 

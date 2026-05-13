@@ -148,8 +148,45 @@ void HttpResponce::handleDir(){
     handleListing();
     
 }
+
+void HttpResponce::setFileType(){
+    std::string file = req.getPath();
+    debug("file is ", file);
+    contentType = "text/html";
+    int pos2;
+
+    size_t pos;
+    pos = file.find(".");
+    pos2 = pos;
+    while (pos != std::string::npos)
+    {
+        pos2 = pos;
+        file = file.substr(pos + 1);
+        pos = file.find(".");
+    }
+    if(pos2 != std::string::npos)
+    {
+        std::string extention = req.getPath().substr(pos2);
+        debug("extention is ", extention);
+        if (extention == ".html")
+            contentType = "text/html";
+        else if (extention == ".css")
+            contentType = "text/css";
+        else if (extention == ".js")
+            contentType = "application/javascript";
+        else if (extention == ".png")
+            contentType = "image/png";
+        else if (extention == ".jpeg")
+            contentType = "image/jpeg";
+        else if (extention == ".pdf")
+            contentType = "application/pdf";
+    }
+}
+
 void HttpResponce::readFile(){
     struct stat sb;
+
+    setFileType();
     std::cout << std::endl;
     std::cout << std::endl;
     debug("reading file   ", real_path);
@@ -175,7 +212,7 @@ void HttpResponce::readFile(){
         return;
     }
     close(fileFd);
-    fileContent = buff;
+    fileContent.assign(buff, fileSize);
     std::cout << "file content " << fileContent.substr(0, 10);
     std::cout << std::endl;
     std::cout << std::endl;
@@ -304,7 +341,7 @@ void HttpResponce::craftResponce(){
     if (status_code == 301)
     {
         status_message = "HTTP/1.1 301 Moved Permanently";
-        responce = status_message + "\r\n" + "Location: " + _location.redirection + "\r\n";
+        responce = status_message + "\r\n" + "Location: " + _location.redirection + "\r\n"+"Content-Length: 0\r\n\r\n";
         return;
     }
     else if (status_code != 200)
@@ -325,10 +362,9 @@ void HttpResponce::craftResponce(){
                 fileContent[i] = ' ';
             fileSize = fileContent.length();
         }
-        return;
     }
 
-    responce = status_message + "\r\n" + "Content-Type: Text/Html\r\nContent-Length: " + intToString(fileSize) + "\r\n\r\n" + fileContent;
+    responce = status_message + "\r\n" + "Content-Type: "+ contentType + "\r\nContent-Length: " + intToString(fileSize) + "\r\n\r\n" + fileContent;
 
 }
 
