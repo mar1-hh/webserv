@@ -148,8 +148,45 @@ void HttpResponce::handleDir(){
     handleListing();
     
 }
+
+void HttpResponce::setFileType(){
+    std::string file = req.getPath();
+    debug("file is ", file);
+    contentType = "text/html";
+    int pos2;
+
+    size_t pos;
+    pos = file.find(".");
+    pos2 = pos;
+    while (pos != std::string::npos)
+    {
+        pos2 = pos;
+        file = file.substr(pos + 1);
+        pos = file.find(".");
+    }
+    if(pos2 != std::string::npos)
+    {
+        std::string extention = req.getPath().substr(pos2);
+        debug("extention is ", extention);
+        if (extention == ".html")
+            contentType = "text/html";
+        else if (extention == ".css")
+            contentType = "text/css";
+        else if (extention == ".js")
+            contentType = "application/javascript";
+        else if (extention == ".png")
+            contentType = "image/png";
+        else if (extention == ".jpeg")
+            contentType = "image/jpeg";
+        else if (extention == ".pdf")
+            contentType = "application/pdf";
+    }
+}
+
 void HttpResponce::readFile(){
     struct stat sb;
+
+    setFileType();
     std::cout << std::endl;
     std::cout << std::endl;
     debug("reading file   ", real_path);
@@ -327,7 +364,7 @@ void HttpResponce::craftResponce(){
         }
     }
 
-    responce = status_message + "\r\n" + "Content-Type: text/html\r\nContent-Length: " + intToString(fileSize) + "\r\n\r\n" + fileContent;
+    responce = status_message + "\r\n" + "Content-Type: "+ contentType + "\r\nContent-Length: " + intToString(fileSize) + "\r\n\r\n" + fileContent;
 
 }
 
