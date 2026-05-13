@@ -175,7 +175,7 @@ void HttpResponce::readFile(){
         return;
     }
     close(fileFd);
-    fileContent = buff;
+    fileContent.assign(buff, fileSize);
     std::cout << "file content " << fileContent.substr(0, 10);
     std::cout << std::endl;
     std::cout << std::endl;
@@ -304,7 +304,7 @@ void HttpResponce::craftResponce(){
     if (status_code == 301)
     {
         status_message = "HTTP/1.1 301 Moved Permanently";
-        responce = status_message + "\r\n" + "Location: " + _location.redirection + "\r\n";
+        responce = status_message + "\r\n" + "Location: " + _location.redirection + "\r\n"+"Content-Length: 0\r\n\r\n";
         return;
     }
     else if (status_code != 200)
@@ -325,10 +325,9 @@ void HttpResponce::craftResponce(){
                 fileContent[i] = ' ';
             fileSize = fileContent.length();
         }
-        return;
     }
 
-    responce = status_message + "\r\n" + "Content-Type: Text/Html\r\nContent-Length: " + intToString(fileSize) + "\r\n\r\n" + fileContent;
+    responce = status_message + "\r\n" + "Content-Type: text/html\r\nContent-Length: " + intToString(fileSize) + "\r\n\r\n" + fileContent;
 
 }
 

@@ -69,6 +69,7 @@ void HttpRequest::parseRequestLine(){
     {
         this->_state._state = ERROR;
         this->_state._error = ERR_METHOD_NOT_ALLOWED;
+        std::cout << "method " << method << "path " << path;
         throw MethodNotAllowed();
     }
     std::string newline = line.substr(pos + 1, line.length());
