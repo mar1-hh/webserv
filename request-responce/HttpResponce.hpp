@@ -2,6 +2,12 @@
 #define HTTPRESPONCE_HPP
 #include "HttpRequest.hpp"
 #include "../server_core/ConfigFileParser/parser.hpp"
+#include <sstream>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <stdio.h>
 
 class Server_core;
 class HttpResponce {

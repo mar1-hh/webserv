@@ -1,6 +1,7 @@
 #include "parser.hpp"
 #include "fstream"
 #include <vector>
+#include <stdlib.h>
 
 std::vector<std::string> split(const std::string line, char del)
 {

@@ -1,9 +1,4 @@
 #include "HttpResponce.hpp"
-#include <sstream>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <dirent.h>
 
 //Helpers
 std::string intToString(int n)
@@ -176,34 +171,43 @@ void HttpResponce::setFileType(){
     }
 }
 
-void HttpResponce::readFile(){
+void HttpResponce::readFile()
+{
     struct stat sb;
 
     setFileType();
     int fileFd = open(real_path.c_str(), O_RDONLY);
     if (fileFd == -1)
     {
-        std::cout << "open file field" << std::endl;
-        perror("open  ");
         status_code = 404;
         status_message = "HTTP/1.1 404 Not Found";
         return;
     }
-    stat(real_path.c_str(), &sb);
-    char buff[sb.st_size] = {0};
-    fileSize = read(fileFd, buff, sb.st_size);
-    if (fileSize == -1)
+    if (stat(real_path.c_str(), &sb) == -1)
     {
-        std::cout << "reading file field "<< real_path << std::endl;
-        perror("read ");
+        close(fileFd);
+        status_code = 500;
+        status_message = "HTTP/1.1 500 Internal Server Error";
+        return;
+    }
+
+    char chunk[8192];
+    ssize_t readsize;
+
+    while ((readsize = read(fileFd, chunk, sizeof(chunk))) > 0)
+        fileContent.append(chunk, readsize);
+
+    close(fileFd);
+
+    if (readsize == -1)
+    {
+        fileContent.clear();
         fileSize = 0;
         status_code = 500;
         status_message = "HTTP/1.1 500 Internal Server Error";
         return;
     }
-    close(fileFd);
-    fileContent.assign(buff, fileSize);
-    std::cout << "file content " << fileContent.substr(0, 10);
+    fileSize = fileContent.length();
 }
 
 void HttpResponce::HandleGet(){
