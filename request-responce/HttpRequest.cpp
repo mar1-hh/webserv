@@ -135,7 +135,6 @@ void HttpRequest::feed(std::string raw, std::string buffer)
     _raw = raw;
     parseRequestLine();
     parseHeaders();
-    std::cout << "here" << std::endl;
     
     if (headers.find("Content-Length") != headers.end())
     {

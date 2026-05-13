@@ -61,7 +61,6 @@ bool HttpResponce::validateLocation(){
         
         if (location.find((*it).path) == 0)
         {
-            std::cout << "got location default file " << (*it).default_file << std::endl;
             if ((*it).path.length() > best_length){
                 best_length = (*it).path.length();
                 _location = *it;
@@ -72,7 +71,6 @@ bool HttpResponce::validateLocation(){
     }
     if (found)
     {
-        debug("found location ", _location.path);
         std::string reqpath = req.getPath().substr(_location.path.length());
         real_path = server.root + _location.path + reqpath;
 
@@ -111,7 +109,6 @@ void HttpResponce::handleListing(){
     struct dirent *entry;
 
     std::string directory = real_path ;
-    std::cout << "directory is " << directory << std::endl;
     DIR *dir = opendir(directory.c_str());
     if (dir == NULL)
     {
@@ -136,9 +133,7 @@ void HttpResponce::handleindex(){
         real_path += "/" + _location.default_file;
     }
     
-    std::cout << "path with index is '" << real_path<<"'" << std::endl;
     readFile();
-    std::cout << "file with index contnet " << fileContent << std::endl;
 }
 
 void HttpResponce::handleDir(){
@@ -151,7 +146,6 @@ void HttpResponce::handleDir(){
 
 void HttpResponce::setFileType(){
     std::string file = req.getPath();
-    debug("file is ", file);
     contentType = "text/html";
     int pos2;
 
@@ -167,7 +161,6 @@ void HttpResponce::setFileType(){
     if(pos2 != std::string::npos)
     {
         std::string extention = req.getPath().substr(pos2);
-        debug("extention is ", extention);
         if (extention == ".html")
             contentType = "text/html";
         else if (extention == ".css")
@@ -187,9 +180,6 @@ void HttpResponce::readFile(){
     struct stat sb;
 
     setFileType();
-    std::cout << std::endl;
-    std::cout << std::endl;
-    debug("reading file   ", real_path);
     int fileFd = open(real_path.c_str(), O_RDONLY);
     if (fileFd == -1)
     {
@@ -214,15 +204,12 @@ void HttpResponce::readFile(){
     close(fileFd);
     fileContent.assign(buff, fileSize);
     std::cout << "file content " << fileContent.substr(0, 10);
-    std::cout << std::endl;
-    std::cout << std::endl;
 }
 
 void HttpResponce::HandleGet(){
     struct stat sb;
     std::cout << "get trigried" << std::endl;
 
-    debug("handle get path ", real_path);
     stat(real_path.c_str(), &sb);
     if (S_ISDIR(sb.st_mode))
         handleDir();
@@ -238,10 +225,8 @@ void HttpResponce::HandleGet(){
 //POst
 void HttpResponce::HandlePost(){
     std::cout << "post trigried" << std::endl;
-    debug("location ", _location.path);
     if (_location.upload_enabled == true)
     {
-    debug("path to write is ", real_path);
     int fileFd = open(real_path.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0777);
     if (fileFd == -1)
     {
@@ -259,7 +244,6 @@ void HttpResponce::HandlePost(){
         }
         else
         {
-            debug("upload not enabled" , " on this location");
             status_code = 200;
             status_message = "HTTP/1.1 200 OK";
         }
@@ -299,35 +283,31 @@ void HttpResponce::HandleDelete(){
 // The proccess
 void HttpResponce::proccess(){
     status_message = "HTTP/1.1 200 OK";
+    
     if (!validateLocation())
     {
         status_code = 404;
         status_message = "HTTP/1.1 404 Not Found";
             return;
     }
-    debug("here ", "1");
     if (_location.redirection != "")
     {
         status_code = 301;
         status_message = "HTTP/1.1 301 Moved Permanently";
         return;
     }
-    debug("here ", "2");
     if (!validateMethod())
     {
         status_code = 405;
         status_message = "HTTP/1.1 405 Method Not Allowed";
         return;
     }
-    debug("server max size is ", intToString(server.max_body_size));
     if (req.getMethod() == "POST" && atoi(req.getHeader("Content-Length").c_str()) >server.max_body_size)
     {
         status_code = 413;
         status_message = "HTTP/1.1 413 Content Too Large";
         return;
     }
-    debug("here ", "3");
-    debug("the method is : ", req.getMethod());
     if (req.getMethod() == "GET")
         HandleGet();
     else if (req.getMethod() == "POST")
@@ -346,7 +326,6 @@ void HttpResponce::craftResponce(){
     }
     else if (status_code != 200)
     {
-        std::cout << "craft entered " << std::endl;
         std::map<int, std::string>::iterator it = server.error_pages.find(status_code);
         if (it != server.error_pages.end())
         {

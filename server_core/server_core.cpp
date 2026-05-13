@@ -95,6 +95,7 @@ bool Server_core::server_starting()
     while (true)
     {
         poll(&vec_poll[0], vec_poll.size(), -1);
+
         for (int i = 0; i < vec_poll.size(); i++)
         {
             if (is_server(vec_poll[i].fd) && (vec_poll[i].revents & POLLIN))
