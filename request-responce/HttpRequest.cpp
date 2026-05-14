@@ -137,7 +137,7 @@ void HttpRequest::parseChunkedBody(const std::string &data){
 
     size_t pos = str.find("\r\n\r\n");
     str = str.substr(pos+4);
-    while (true)
+    while (pos != std::string::npos)
     {
         pos = str.find("\r\n");
         std::istringstream iss(str.substr(0, pos));
