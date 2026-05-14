@@ -68,16 +68,6 @@ bool HttpResponce::validateLocation(){
     {
         std::string reqpath = req.getPath().substr(_location.path.length());
         real_path = server.root + _location.path + reqpath;
-
-        if (req.getMethod() == "GET"){
-            int fileFd = open(real_path.c_str(), 0);
-            if (fileFd == -1)
-                ;
-            else
-            {
-                close(fileFd);
-            }
-    }
     }
     return found;
 }
@@ -103,7 +93,7 @@ bool HttpResponce::validateMethod(){
 void HttpResponce::handleListing(){
     struct dirent *entry;
 
-    std::string directory = real_path ;
+    std::string directory = server.root+req.getPath();
     DIR *dir = opendir(directory.c_str());
     if (dir == NULL)
     {
@@ -114,7 +104,7 @@ void HttpResponce::handleListing(){
     fileContent = "<!DOCTYPE html><html><head><title> Files</title></head><body><h1> Directory Listing</h1><ul>";
     while ((entry = readdir(dir)) != NULL)
     {
-        fileContent += "<li><a href=\"" + _location.path +"/"+entry->d_name+ "\">" + entry->d_name + "</a></li>";
+        fileContent += "<li><a href=\"" + req.getPath() +"/"+entry->d_name+ "\">" + entry->d_name + "</a></li>";
     }
     fileContent += "</ul></body></html>";
     fileSize = fileContent.length();
@@ -133,10 +123,14 @@ void HttpResponce::handleindex(){
 
 void HttpResponce::handleDir(){
     if (_location.default_file != "")
-    handleindex();
+        handleindex();
     else if (_location.directory_listing)
-    handleListing();
-    
+        handleListing();
+    else
+    {
+        status_code = 403;
+        status_message = "HTTP/1.1 403 Forbidden";
+    }
 }
 
 void HttpResponce::setFileType(){
@@ -214,7 +208,12 @@ void HttpResponce::HandleGet(){
     struct stat sb;
     std::cout << "get trigried" << std::endl;
 
-    stat(real_path.c_str(), &sb);
+    if (stat(real_path.c_str(), &sb) == -1)
+    {
+        status_code = 404;
+        status_message = "HTTP/1.1 404 Not Found";
+        return;
+    }
     if (S_ISDIR(sb.st_mode))
         handleDir();
     else if (S_ISREG(sb.st_mode))
@@ -231,14 +230,15 @@ void HttpResponce::HandlePost(){
     std::cout << "post trigried" << std::endl;
     if (_location.upload_enabled == true)
     {
-    int fileFd = open(real_path.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0777);
-    if (fileFd == -1)
-    {
-        perror("open :");
-        status_code = 500;
-        status_message = "HTTP/1.1 500 Internal Server Error";
-        return;
-    }
+        // real_path = server.root + _location.upload_path + "/" + ?
+        int fileFd = open(real_path.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0777);
+        if (fileFd == -1)
+        {
+            perror("open :");
+            status_code = 500;
+            status_message = "HTTP/1.1 500 Internal Server Error";
+            return;
+        }
         write(fileFd, req.getBody().c_str(), req.getBody().length());
         status_code = 201;
         status_message = "HTTP/1.1 201 Created";
@@ -340,11 +340,10 @@ void HttpResponce::craftResponce(){
         }
         else
         {
-            fileContent = status_message;
-            for (int i = 0; i < 8; i++)
-                fileContent[i] = ' ';
+            fileContent = "<html><body><h1>" + status_message + "</h1></body></html>";
             fileSize = fileContent.length();
         }
+        contentType = "text/html";
     }
 
     responce = status_message + "\r\n" + "Content-Type: "+ contentType + "\r\nContent-Length: " + intToString(fileSize) + "\r\n\r\n" + fileContent;
