@@ -94,6 +94,8 @@ void HttpResponce::handleListing(){
     struct dirent *entry;
 
     std::string directory = server.root+req.getPath();
+    // if (server.root[server.root.length()-1] == '/' && req.getPath()[req.getPath().length() -1] == '/')
+    //     di
     DIR *dir = opendir(directory.c_str());
     if (dir == NULL)
     {
@@ -134,7 +136,7 @@ void HttpResponce::handleDir(){
 }
 
 void HttpResponce::setFileType(){
-    std::string file = req.getPath();
+    std::string file = real_path;
     contentType = "text/html";
     int pos2;
 
@@ -230,7 +232,8 @@ void HttpResponce::HandlePost(){
     std::cout << "post trigried" << std::endl;
     if (_location.upload_enabled == true)
     {
-        // real_path = server.root + _location.upload_path + "/" + ?
+        real_path = server.root +"/"+ _location.upload_path + req.getPath().substr(_location.path.length() );
+        std::cout << "the file to wriet is " << real_path << std::endl;
         int fileFd = open(real_path.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0777);
         if (fileFd == -1)
         {
@@ -328,7 +331,7 @@ void HttpResponce::craftResponce(){
         responce = status_message + "\r\n" + "Location: " + _location.redirection + "\r\n"+"Content-Length: 0\r\n\r\n";
         return;
     }
-    else if (status_code != 200)
+    else if (status_code != 200 && status_code != 201)
     {
         std::map<int, std::string>::iterator it = server.error_pages.find(status_code);
         if (it != server.error_pages.end())
