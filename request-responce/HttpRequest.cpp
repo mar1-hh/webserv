@@ -1,4 +1,5 @@
 #include "HttpRequest.hpp"
+#include <sstream>
 
 void display_request(const HttpRequest &r)
 {
@@ -69,7 +70,8 @@ void HttpRequest::parseRequestLine(){
     {
         this->_state._state = ERROR;
         this->_state._error = ERR_METHOD_NOT_ALLOWED;
-        throw MethodNotAllowed();
+        std::cout << "method " << method << "path " << path;
+        return;
     }
     std::string newline = line.substr(pos + 1, line.length());
     pos = newline.find(" ");
@@ -94,7 +96,7 @@ void HttpRequest::parseRequestLine(){
 
         this->_state._state = ERROR;
         this->_state._error = ERR_VERSION_NOT_SUPPORTED;
-        throw VersionNotSupported();
+        return;
     }
 }
 std::string getnextline(std::string &lines){
@@ -129,23 +131,52 @@ void HttpRequest::parseHeaders(){
         }
     }
 }
+
+void HttpRequest::parseChunkedBody(const std::string &data){
+    std::string str = data;
+
+    size_t pos = str.find("\r\n\r\n");
+    str = str.substr(pos+4);
+    while (true)
+    {
+        pos = str.find("\r\n");
+        std::istringstream iss(str.substr(0, pos));
+        size_t chunk_size;
+        iss >> std::hex >> chunk_size;
+        if (chunk_size == 0)
+        {
+            _state._state = COMPLETE;
+            this->content_length = body.length();
+            return;
+        }
+        str = str.substr(pos+2);
+        body += str.substr(0, chunk_size);
+        str = str.substr(chunk_size + 2);
+    }
+}
+
 void HttpRequest::feed(std::string raw, std::string buffer)
 {
     _raw = raw;
     parseRequestLine();
     parseHeaders();
-    std::cout << "here" << std::endl;
     
-    if (headers.find("Content-Length") != headers.end())
+    this->_state._state = BODY;
+    if (headers.find("Transfer-Encoding") != headers.end())
     {
-        this->content_length = atoi(headers["Content-Length"].c_str());
-        this->_state._state = BODY;
         std::string TransferEncoding = headers["Transfer-Encoding"];
         if (TransferEncoding == "chunked")
         {
             is_chuncked = true;
+            parseChunkedBody(_raw);
+            display_request(*this);
             return;
         }
+    }
+
+    if (headers.find("Content-Length") != headers.end())
+    {
+        this->content_length = atoi(headers["Content-Length"].c_str());
 
         body = buffer.substr(0, content_length);
     }

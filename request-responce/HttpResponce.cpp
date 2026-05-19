@@ -1,13 +1,17 @@
 #include "HttpResponce.hpp"
-#include <sstream>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <dirent.h>
+
+//Helpers
+std::string intToString(int n)
+{
+    std::ostringstream oss;
+    oss << n;
+    return oss.str();
+}
 
 void debug(std::string a, std::string b){
     std::cout << a << "  " << b << std::endl;
 }
+
 void display_response(const HttpResponce &r)
 {
     std::cout << "\n";
@@ -24,13 +28,23 @@ void display_response(const HttpResponce &r)
     std::cout << std::endl;
 }
 
+
+// OCF 
+
 HttpResponce::HttpResponce(HttpRequest &request, Server &serv): req(request), server(serv){
     status_code = 200;
-    dircontent = "";
+    status_message = "HTTP/1.1 200 OK";
+    fileContent = "";
+    fileSize = 0;
     proccess();
     craftResponce();
     display_response(*this);
 }
+
+
+
+
+//validation
 bool HttpResponce::validateLocation(){
     std::vector<Location> locations = server.locations;
     std::string location = req.getPath();
@@ -42,7 +56,6 @@ bool HttpResponce::validateLocation(){
         
         if (location.find((*it).path) == 0)
         {
-            std::cout << "got path " << (*it).path << std::endl;
             if ((*it).path.length() > best_length){
                 best_length = (*it).path.length();
                 _location = *it;
@@ -53,21 +66,8 @@ bool HttpResponce::validateLocation(){
     }
     if (found)
     {
-        real_path = location.substr(best_length);
-        if (_location.root.length() == 0)
-            real_path = server.root +"/"+ real_path;
-        else
-            real_path = _location.root + "/" + real_path;
-
-        if (req.getMethod() == "GET"){
-            size_t fileFd = open(real_path.c_str(), 0);
-            if (fileFd == -1)
-                ;
-            else
-            {
-                close(fileFd);
-            }
-    }
+        std::string reqpath = req.getPath().substr(_location.path.length());
+        real_path = server.root + _location.path + reqpath;
     }
     return found;
 }
@@ -85,119 +85,272 @@ bool HttpResponce::validateMethod(){
     return false;
 }
 
+
+
+
+//GET 
+
+void HttpResponce::handleListing(){
+    struct dirent *entry;
+
+    std::string directory = server.root+req.getPath();
+    DIR *dir = opendir(directory.c_str());
+    if (dir == NULL)
+    {
+        status_code = 404;
+        status_message = "HTTP/1.1 404 Not Found";
+        return;
+    }
+    fileContent = "<!DOCTYPE html><html><head><title> Files</title></head><body><h1> Directory Listing</h1><ul>";
+    while ((entry = readdir(dir)) != NULL)
+    {
+        fileContent += "<li><a href=\"" + req.getPath() +"/"+entry->d_name+ "\">" + entry->d_name + "</a></li>";
+    }
+    fileContent += "</ul></body></html>";
+    fileSize = fileContent.length();
+}
+
+void HttpResponce::handleindex(){
+    if (real_path[real_path.length()-1] == '/')
+        real_path +=  _location.default_file;
+    else
+    {
+        real_path += "/" + _location.default_file;
+    }
+    
+    readFile();
+}
+
+void HttpResponce::handleDir(){
+    if (_location.default_file != "")
+        handleindex();
+    else if (_location.directory_listing)
+        handleListing();
+    else
+    {
+        status_code = 403;
+        status_message = "HTTP/1.1 403 Forbidden";
+    }
+}
+
+void HttpResponce::setFileType(){
+    std::string file = req.getPath();
+    contentType = "text/html";
+    int pos2;
+
+    size_t pos;
+    pos = file.find(".");
+    pos2 = pos;
+    while (pos != std::string::npos)
+    {
+        pos2 = pos;
+        file = file.substr(pos + 1);
+        pos = file.find(".");
+    }
+    if(pos2 != std::string::npos)
+    {
+        std::string extention = req.getPath().substr(pos2);
+        if (extention == ".html")
+            contentType = "text/html";
+        else if (extention == ".css")
+            contentType = "text/css";
+        else if (extention == ".js")
+            contentType = "application/javascript";
+        else if (extention == ".png")
+            contentType = "image/png";
+        else if (extention == ".jpeg")
+            contentType = "image/jpeg";
+        else if (extention == ".pdf")
+            contentType = "application/pdf";
+    }
+}
+
+void HttpResponce::readFile()
+{
+    struct stat sb;
+
+    setFileType();
+    int fileFd = open(real_path.c_str(), O_RDONLY);
+    if (fileFd == -1)
+    {
+        status_code = 404;
+        status_message = "HTTP/1.1 404 Not Found";
+        return;
+    }
+    if (stat(real_path.c_str(), &sb) == -1)
+    {
+        close(fileFd);
+        status_code = 500;
+        status_message = "HTTP/1.1 500 Internal Server Error";
+        return;
+    }
+
+    char chunk[8192];
+    ssize_t readsize;
+
+    while ((readsize = read(fileFd, chunk, sizeof(chunk))) > 0)
+        fileContent.append(chunk, readsize);
+
+    close(fileFd);
+
+    if (readsize == -1)
+    {
+        fileContent.clear();
+        fileSize = 0;
+        status_code = 500;
+        status_message = "HTTP/1.1 500 Internal Server Error";
+        return;
+    }
+    fileSize = fileContent.length();
+}
+
+void HttpResponce::HandleGet(){
+    struct stat sb;
+    std::cout << "get trigried" << std::endl;
+
+    if (stat(real_path.c_str(), &sb) == -1)
+    {
+        status_code = 404;
+        status_message = "HTTP/1.1 404 Not Found";
+        return;
+    }
+    if (S_ISDIR(sb.st_mode))
+        handleDir();
+    else if (S_ISREG(sb.st_mode))
+        readFile();
+    else
+    {
+        status_code = 404;
+        status_message = "HTTP/1.1 404 Not Found";
+    }
+}
+
+//POst
+void HttpResponce::HandlePost(){
+    std::cout << "post trigried" << std::endl;
+    if (_location.upload_enabled == true)
+    {
+        // real_path = server.root + _location.upload_path + "/" + ?
+        int fileFd = open(real_path.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0777);
+        if (fileFd == -1)
+        {
+            perror("open :");
+            status_code = 500;
+            status_message = "HTTP/1.1 500 Internal Server Error";
+            return;
+        }
+        write(fileFd, req.getBody().c_str(), req.getBody().length());
+        status_code = 201;
+        status_message = "HTTP/1.1 201 Created";
+        fileContent = status_message;
+        fileSize = fileContent.length();
+        close(fileFd);
+        }
+        else
+        {
+            status_code = 200;
+            status_message = "HTTP/1.1 200 OK";
+        }
+}
+
+//Delete
+void HttpResponce::HandleDelete(){
+    std::cout << "delete trigried" << std::endl;
+    struct stat sb;
+
+    if (stat(real_path.c_str(), &sb) == -1)
+    {
+        status_code = 404;
+        status_message = "HTTP/1.1 404 Not Found";
+    }
+    else if (S_ISDIR(sb.st_mode))
+    {
+        status_code = 403;
+        status_message = "HTTP/1.1 403 Forbidden";
+    }
+    else if (S_ISREG(sb.st_mode))
+    {
+        int status = unlink(real_path.c_str());
+        if (status == -1)
+        {
+            status_code = 500;
+            status_message = "HTTP/1.1 500 Internal Server Error";
+        }
+        else
+        {
+            status_code = 200;
+            status_message = "HTTP/1.1 200 OK";
+        }
+    }
+}
+
+// The proccess
 void HttpResponce::proccess(){
-    status_message = "200 OK";
+    status_message = "HTTP/1.1 200 OK";
+    
     if (!validateLocation())
     {
         status_code = 404;
-        status_message = "404 Not Found";
+        status_message = "HTTP/1.1 404 Not Found";
+            return;
+    }
+    if (_location.redirection != "")
+    {
+        status_code = 301;
+        status_message = "HTTP/1.1 301 Moved Permanently";
         return;
     }
     if (!validateMethod())
     {
         status_code = 405;
-        status_message = "405 Method Not Allowed";
+        status_message = "HTTP/1.1 405 Method Not Allowed";
         return;
     }
     if (req.getMethod() == "POST" && atoi(req.getHeader("Content-Length").c_str()) >server.max_body_size)
     {
         status_code = 413;
-        status_message = "413 Content Too Large";
+        status_message = "HTTP/1.1 413 Content Too Large";
         return;
     }
+    if (req.getMethod() == "GET")
+        HandleGet();
+    else if (req.getMethod() == "POST")
+        HandlePost();
+    else if (req.getMethod() == "DELETE")
+        HandleDelete();
+}
+
+
+void HttpResponce::craftResponce(){
+    if (status_code == 301)
+    {
+        status_message = "HTTP/1.1 301 Moved Permanently";
+        responce = status_message + "\r\n" + "Location: " + _location.redirection + "\r\n"+"Content-Length: 0\r\n\r\n";
+        return;
+    }
+    else if (status_code != 200)
+    {
+        std::map<int, std::string>::iterator it = server.error_pages.find(status_code);
+        if (it != server.error_pages.end())
+        {
+            real_path = server.root +"/" +server.error_pages[status_code];
+            int status = status_code;
+            readFile();
+            status_code = status;
+        }
+        else
+        {
+            fileContent = "<html><body><h1>" + status_message + "</h1></body></html>";
+            fileSize = fileContent.length();
+        }
+        contentType = "text/html";
+    }
+
+    responce = status_message + "\r\n" + "Content-Type: "+ contentType + "\r\nContent-Length: " + intToString(fileSize) + "\r\n\r\n" + fileContent;
+
 }
 
 //getter 
 std::string HttpResponce::getResponce() const{
     return responce;
-}
-std::string intToString(int n)
-{
-    std::ostringstream oss;
-    oss << n;
-    return oss.str();
-}
-
-void HttpResponce::handleListing(){
-    struct dirent *entry;
-
-    real_path += req.getPath();
-    std::cout << "path is " << real_path << std::endl;
-    DIR *dir = opendir(real_path.c_str());
-    if (dir == NULL)
-    {
-        status_code = 404;
-        return;
-    }
-    dircontent = "<!DOCTYPE html><html><head><title> Files</title></head><body><h1> Directory Listing</h1><ul>";
-    while ((entry = readdir(dir)) != NULL)
-    {
-        dircontent += "<li><a href=\"" + _location.path +"/"+entry->d_name+ "\">" + entry->d_name + "</a></li>";
-    }
-    dircontent += "</ul></body></html>";
-}
-
-void HttpResponce::handleindex(){
-    if (real_path[real_path.length() - 1] == '/')
-        real_path[real_path.length() - 1] = '\0';
-    real_path += req.getPath() + "/" + _location.default_file;
-    std::cout << "path with index is " << real_path << std::endl;
-}
-
-void HttpResponce::handleDir(){
-    debug("dir  endert", "  ");
-    if (_location.directory_listing)
-        return handleListing();
-    handleindex();
-    
-}
-
-void HttpResponce::craftResponce(){
-    char buff[10001] = {0};
-    std::string lenght;
-    struct stat sb;
-
-    stat(real_path.c_str(), &sb);
-    if (S_ISDIR(sb.st_mode))
-        handleDir();
-    else if (S_ISREG(sb.st_mode))
-        ;
-    else
-        status_code = 404;
-
-    if (status_code != 200 && status_code != 301)
-    {
-        std::string errorpage = server.error_pages[status_code];
-        if (errorpage == "")
-            errorpage = server.error_pages[404];
-        
-        real_path = server.root + "/" + errorpage;
-            
-            
-        std::cout << "error path is " << real_path << std::endl;
-    }
-    // handle redirection
-    if (status_code == 301)
-    {
-        std::cout << "location " << _location.path << " redirection  " << _location.redirection << std::endl;
-        status_message += "\r\nLocation: " + _location.redirection;
-    }
-    size_t fileSize;
-    if (req.getMethod() == "GET")
-    {
-        size_t fileFd = open(real_path.c_str(), 0);
-        fileSize = read(fileFd, buff, 10000);
-        if (fileSize == -1)
-            fileSize = 0;
-        lenght = intToString(fileSize);
-    }
-    std::string buff2 = buff;
-    if (dircontent != "")
-    {
-        buff2 = dircontent;
-        fileSize = dircontent.length();
-        lenght = intToString(fileSize);
-    }
-    responce = "HTTP/1.1 " + status_message + "\r\nContent-Type: text/html\r\nContent-Length: " + lenght + "\r\nConnection: keep-alive\r\n\r\n";
-    responce += buff2;
 }

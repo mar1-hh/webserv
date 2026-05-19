@@ -2,6 +2,12 @@
 #define HTTPRESPONCE_HPP
 #include "HttpRequest.hpp"
 #include "../server_core/ConfigFileParser/parser.hpp"
+#include <sstream>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
+#include <stdio.h>
 
 class Server_core;
 class HttpResponce {
@@ -10,7 +16,11 @@ private:
     std::string real_path;
     HttpRequest &req;
     Server &server;
-    std::string dircontent;
+
+
+    std::string fileContent;
+    std::string contentType;
+    int fileSize;
 
     size_t status_code;
     std::string status_message;
@@ -19,12 +29,18 @@ private:
 public:
     HttpResponce(HttpRequest &request, Server &serv);
     void proccess();
+    void HandleGet();
+    void HandlePost();
+    void HandleDelete();
     void craftResponce();
+
+    void setFileType();
+    void readFile();
+    void handleDir();
 
     bool validateLocation();
     bool validateMethod();
 
-    void handleDir();
     void handleindex();
     void handleListing();
 
