@@ -41,6 +41,7 @@ bool Server_core::client_connection(int server_fd)
     if (client_id > 0)
     {
         std::cout << "the client connected" << std::endl;
+        client_ip[client_id] = inet_ntoa(client_addr.sin_addr);
         tmp_pol.fd = client_id;
         tmp_pol.events = POLLIN;
         tmp_pol.revents = 0;
@@ -80,7 +81,7 @@ bool Server_core::client_request(int id_client_req)
         HttpRequest req;
         tmp2 = buffer;
         req.feed(tmp, tmp2.substr(pos + 4));
-        HttpResponce resp(req, *server_client[id_client_req]);
+        HttpResponce resp(req, *server_client[id_client_req], client_ip[id_client_req]);
         std::string raw = resp.getResponce();
         send(id_client_req, raw.c_str(), raw.length(), 0);
         req_map[id_client_req].erase(0, pos + 4 + req.getContentLength());

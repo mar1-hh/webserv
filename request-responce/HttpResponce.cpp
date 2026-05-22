@@ -31,17 +31,16 @@ void display_response(const HttpResponce &r)
 
 // OCF 
 
-HttpResponce::HttpResponce(HttpRequest &request, Server &serv): req(request), server(serv){
+HttpResponce::HttpResponce(HttpRequest &request, Server &serv, std::string client_ip): req(request), server(serv), client_ip(client_ip), cgi_flag(0) {
     status_code = 200;
     status_message = "HTTP/1.1 200 OK";
     fileContent = "";
     fileSize = 0;
+    
     proccess();
     craftResponce();
     display_response(*this);
 }
-
-
 
 
 //validation
@@ -284,6 +283,35 @@ void HttpResponce::HandleDelete(){
     }
 }
 
+bool HttpResponce::is_cgi(std::string path)
+{
+    if (_location.cgi_extension.empty())
+        return false;
+
+    size_t pos = path.rfind(_location.cgi_extension);
+    if (pos == std::string::npos)
+        return false;
+
+    return (pos + _location.cgi_extension.size() == path.size());
+}
+
+void HttpResponce::HandleCgi()
+{
+    cgi_result res = exeute_cgi(req, server, _location, client_ip);
+    status_code = res.exit_status;
+    cgi_flag = true;
+    std::string output = res.raw_output;
+    size_t pos = output.find("\r\n\r\n");
+    if (pos != std::string::npos)
+    {
+        cgi_headers = output.substr(0, pos);
+        fileContent = output.substr(pos + 4); // ONLY BODY
+    }
+    else
+        fileContent = output;
+    contentType = "text/html";
+}
+
 // The proccess
 void HttpResponce::proccess(){
     status_message = "HTTP/1.1 200 OK";
@@ -312,6 +340,12 @@ void HttpResponce::proccess(){
         status_message = "HTTP/1.1 413 Content Too Large";
         return;
     }
+    if (is_cgi(req.getPath()))
+    {
+        HandleCgi();
+        return ;
+    }
+    
     if (req.getMethod() == "GET")
         HandleGet();
     else if (req.getMethod() == "POST")
@@ -322,6 +356,18 @@ void HttpResponce::proccess(){
 
 
 void HttpResponce::craftResponce(){
+    if (cgi_flag)
+    {
+        std::string status_line = "HTTP/1.1 " + intToString(status_code) + " OK\r\n";
+        responce = status_line;
+        if (!cgi_headers.empty())
+            responce += cgi_headers + "\r\n";
+        responce += "Content-Type: " + contentType + "\r\n";
+        responce += "Content-Length: " + intToString(fileContent.size()) + "\r\n";
+        responce += "\r\n";
+        responce += fileContent;
+        return;
+    }
     if (status_code == 301)
     {
         status_message = "HTTP/1.1 301 Moved Permanently";

@@ -13,19 +13,29 @@ char** env_pointer(std::vector<std::string> &env_vec)
 cgi_result exeute_cgi(HttpRequest& req, Server& ser, Location& loc, std::string client_ip)
 {
     cgi_result cgi_res = {"", 0};
+
     std::string full_path = req.getPath();
     std::string ext = loc.cgi_extension;
-    size_t pos = full_path.find(ext);
-    std::string script_name , path_info;
+    size_t pos = full_path.rfind(ext);
+    std::string script_name, path_info;
     if (pos != std::string::npos)
     {
         script_name = full_path.substr(0, pos + ext.length());
         path_info = full_path.substr(pos + ext.length());
     }
-    std::vector<std::string> env_vec = env_buider(req, script_name, ser.interface_ip, std::to_string(ser.port), client_ip, path_info);
+    std::vector<std::string> env_vec = env_buider(req, script_name,
+        ser.interface_ip, std::to_string(ser.port), client_ip, path_info);
     char **cgi_env = env_pointer(env_vec);
-    std::string script_path = loc.root + script_name;
-    char *argv[] = {strdup(loc.cgi_path.c_str()), strdup(script_path.c_str()), NULL};
+    std::string relative = script_name;
+    if (relative.find(loc.path) == 0)
+        relative = relative.substr(loc.path.length());
+    std::string script_path = loc.root + relative;
+    std::cout << "script_path = " << script_path << std::endl;
+    char *argv[] = {
+        strdup(loc.cgi_path.c_str()),
+        strdup(script_path.c_str()),
+        NULL
+    };
     int in_pipe[2];
     int out_pipe[2];
     int saved_in, saved_out;

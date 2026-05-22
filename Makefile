@@ -11,7 +11,7 @@ CXXFLAGS := -std=c++98 #-Wall -Wextra -Werror
 RM := rm -rf
 
 SRC = server_core/server_core.cpp server_core/server.cpp server_core/ConfigFileParser/parser.cpp\
-	request-responce/HttpRequest.cpp request-responce/HttpResponce.cpp
+	request-responce/HttpRequest.cpp request-responce/HttpResponce.cpp cgi/cgi.cpp cgi/env_builder.cpp
 
 INC := server_core/server_core.hpp server_core/ConfigFileParser/parser.hpp \
  request-responce/HttpRequest.hpp request-responce/HttpResponce.hpp

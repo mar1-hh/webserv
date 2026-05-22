@@ -24,6 +24,7 @@ class Server_core
     std::vector<struct pollfd>  vec_poll;
     std::map<int, std::string> req_map;
     std::map<int, Server*> server_client;
+    std::map<int, std::string> client_ip;
     bool client_connection(int server_fd);
     bool client_request(int id_client_req);
 
