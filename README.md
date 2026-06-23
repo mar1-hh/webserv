@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by &lt;login&gt;.*
+*This project has been created as part of the 42 curriculum by jbelkerf, fbalyout, msaadaou.*
 
 ## Description
 
@@ -48,7 +48,7 @@ Then open a browser or use `curl`:
 curl http://localhost:8080/                 # static page
 curl http://localhost:8080/list/            # directory listing
 curl http://localhost:8080/cgi-bin/test.py  # CGI (python)
-curl -X POST --data-binary @file.txt http://localhost:8080/uploads/file.txt
+curl -X POST --data-binary @file.txt http://localhost:8080/upload/file.txt
 curl http://localhost:8080/session          # session / cookie demo
 ```
 
