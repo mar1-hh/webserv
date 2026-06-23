@@ -349,6 +349,12 @@ void HttpResponce::process()
         build();
         return;
     }
+    else if (req.getBody().length() > server.max_body_size)
+    {
+        status_code = 413;
+        build();
+        return;
+    }
 
     if (req.getPath() == "/session")
     {
