@@ -1,17 +1,16 @@
-#pragma once
+#ifndef CGI_HPP
+#define CGI_HPP
 
 #include "../request-responce/HttpRequest.hpp"
-#include "../server_core/ConfigFileParser/parser.hpp"
-#include "unistd.h"
+#include <string>
+#include <vector>
 
+std::vector<std::string> build_cgi_env(HttpRequest &req,
+                                       const std::string &script_name,
+                                       const std::string &script_filename,
+                                       const std::string &path_info,
+                                       const std::string &server_name,
+                                       const std::string &server_port,
+                                       const std::string &client_ip);
 
-struct cgi_result {
-    std::string raw_output;
-    int exit_status;
-};
-
-std::vector<std::string> env_buider(HttpRequest& req, std::string script_name, 
-    std::string server_name, std::string server_port, std::string client_ip, std::string path_info);
-
-cgi_result exeute_cgi(HttpRequest& req, Server& ser, Location& loc, std::string client_ip);
-
+#endif

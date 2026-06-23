@@ -3,17 +3,17 @@ import requests
 passed = 0
 failed = 0
 
-def test(name, method, path, port=8080, params=None, data=None, headers=None, expected_status=None):
+def test(name, method, path, port=8080, params=None, data=None, headers=None, expected_status=None, allow_redirects=True):
     global passed, failed
     BASE = f"http://127.0.0.1:{port}"
     url = BASE + path
     try:
         if method == "GET":
-            res = requests.get(url, params=params, headers=headers, timeout=5)
+            res = requests.get(url, params=params, headers=headers, timeout=5, allow_redirects=allow_redirects)
         elif method == "POST":
-            res = requests.post(url, params=params, data=data, headers=headers, timeout=5)
+            res = requests.post(url, params=params, data=data, headers=headers, timeout=5, allow_redirects=allow_redirects)
         elif method == "DELETE":
-            res = requests.delete(url, params=params, headers=headers, timeout=5)
+            res = requests.delete(url, params=params, headers=headers, timeout=5, allow_redirects=allow_redirects)
 
         status_ok = (expected_status is None) or (res.status_code == expected_status)
         symbol = "✅" if status_ok else "❌"
@@ -111,9 +111,9 @@ test("GET on /upload → 405",    "GET",  "/upload",      port=9090, expected_st
 test("DELETE on /upload → 405", "DELETE", "/upload",    port=9090, expected_status=405)
 
 # location /redirect → 301
-test("GET redirect → 301",      "GET",  "/redirect",    port=9090, expected_status=301)
+test("GET redirect → 301",      "GET",  "/redirect",    port=9090, expected_status=301, allow_redirects=False)
 test("POST redirect → 301",     "POST", "/redirect",    port=9090,
-     data={"x": "y"},                                   expected_status=301)
+     data={"x": "y"},                                   expected_status=301, allow_redirects=False)
 
 # no matching location
 test("GET unknown → 404",       "GET",  "/ghost",       port=9090, expected_status=404)

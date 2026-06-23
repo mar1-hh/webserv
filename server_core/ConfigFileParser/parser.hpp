@@ -2,10 +2,11 @@
 #define PARSER_HPP
 
 #include <iostream>
+#include <string>
 #include <vector>
 #include <map>
 
-typedef struct Location
+struct Location
 {
     std::string path;
     std::string root;
@@ -15,20 +16,23 @@ typedef struct Location
     std::string default_file;
     bool upload_enabled;
     std::string upload_path;
-    std::string cgi_extension;
-    std::string cgi_path;
-} Location;
+    std::map<std::string, std::string> cgi;
 
-typedef struct Server
+    Location();
+};
+
+struct Server
 {
-    std::string interface_ip;
+    std::string host;
     int port;
     std::string root;
     std::vector<Location> locations;
     std::map<int, std::string> error_pages;
     size_t max_body_size;
-} Server;
 
-void parser(std::vector<Server> &servers);
+    Server();
+};
+
+bool parser(std::vector<Server> &servers, const std::string &path);
 
 #endif

@@ -1,235 +1,176 @@
 #include "HttpRequest.hpp"
 #include <sstream>
+#include <cstdlib>
+#include <cctype>
 
-void display_request(const HttpRequest &r)
+static std::string toLower(const std::string &s)
 {
-    std::cout << "\n";
-    std::cout << "┌─────────────────────────────────────────┐" << std::endl;
-    std::cout << "│           HTTP REQUEST PARSED            │" << std::endl;
-    std::cout << "└─────────────────────────────────────────┘" << std::endl;
-
-    std::cout << "\n[ REQUEST LINE ]" << std::endl;
-    std::cout << "  Method      : " << r.getMethod() << std::endl;
-    std::cout << "  URI         : " << r.getUri() << std::endl;
-    std::cout << "  Path        : " << r.getPath() << std::endl;
-    std::cout << "  Query       : " << r.getQuery() << std::endl;
-    std::cout << "  HTTP Ver    : " << r.getHttpVersion() << std::endl;
-
-    std::cout << "\n[ HEADERS ]" << std::endl;
-    std::map<std::string, std::string> headers = r.getHeaders();
-    std::map<std::string, std::string>::iterator it;
-    for (it = headers.begin(); it != headers.end(); it++)
-        std::cout << "  '" << it->first << "' : " << it->second << std::endl;
-
-    std::cout << "  Body    : " << r.getBody() << std::endl;
-    std::cout << std::endl << std::endl;
-}
-/*
-POST /submit HTTP/1.1\r\n                        ← request line
-Host: localhost:8080\r\n                         ← header 1
-Content-Type: application/x-www-form-urlencoded\r\n  ← header 2
-Content-Length: 27\r\n                           ← header 3 (body is 27 bytes)
-Connection: keep-alive\r\n                       ← header 4
-\r\n                                             ← end of headers
-username=jawad&password=1337                     ← body (exactly 27 bytes)
-*/
-// Ortodocs
-
-HttpRequest::HttpRequest(){
-    body = "";
-    method = "";
-    query = "";
-    http_ver = "";
-    is_chuncked = false;
-    content_length = 0;
-
+    std::string out = s;
+    for (size_t i = 0; i < out.size(); i++)
+        out[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(out[i])));
+    return out;
 }
 
-//exceptions 
-
-const char * HttpRequest::MethodNotAllowed::what() const throw(){
-    return "this method is now allowed";
-}
-const char *HttpRequest::VersionNotSupported::what() const throw()
+HttpRequest::HttpRequest()
+    : content_length(0), is_chunked(false), state(REQUEST_LINE), error(NONE)
 {
-    return "this version of http not supported";
 }
 
-void HttpRequest::parseRequestLine(){
-    this->_state._state = REQUEST_LINE;
-    size_t pos = _raw.find("\r\n");
-    std::string line = _raw.substr(0, pos);
+void HttpRequest::parseRequestLine()
+{
+    size_t eol = _raw.find("\r\n");
+    std::string line = (eol == std::string::npos) ? _raw : _raw.substr(0, eol);
 
-    pos = line.find(" ");
-    std::string method = line.substr(0, pos);
-
-    if (method == "GET" || method == "POST" || method == "DELETE" || method == "PUT" || method == "PATCH" ||\
-            method == "HEAD" || method == "OPTIONS")
-        this->method = method;
-    else
+    size_t sp1 = line.find(' ');
+    if (sp1 == std::string::npos)
     {
-        this->_state._state = ERROR;
-        this->_state._error = ERR_METHOD_NOT_ALLOWED;
-        std::cout << "method " << method << "path " << path;
+        state = ERROR;
+        error = ERR_BAD_REQUEST;
         return;
     }
-    std::string newline = line.substr(pos + 1, line.length());
-    pos = newline.find(" ");
-    line = newline.substr(0, pos);
-    pos = line.find("?");
-    if (pos != std::string::npos)
-    {
-        this->uri = line.substr(0, pos);
-        this->query = line.substr(pos + 1, line.length());
-    }
-    else
-    {
-        this->uri = line;
-        this->query = "";
-    }
-    pos = newline.find(" ");
-    line = newline.substr(pos + 1, newline.length());
-    if (line == "HTTP/1.1" || line == "HTTP/1.0")
-        this->http_ver = line;
-    else
-    {
+    method = line.substr(0, sp1);
 
-        this->_state._state = ERROR;
-        this->_state._error = ERR_VERSION_NOT_SUPPORTED;
+    size_t sp2 = line.find(' ', sp1 + 1);
+    if (sp2 == std::string::npos)
+    {
+        state = ERROR;
+        error = ERR_BAD_REQUEST;
         return;
     }
-}
-std::string getnextline(std::string &lines){
-    std::string newline;
-    size_t pos = lines.find("\r\n");
-    newline = lines.substr(0, pos );
-    lines = lines.substr(pos + 2, lines.length());
-    return newline;
-}
+    std::string target = line.substr(sp1 + 1, sp2 - sp1 - 1);
+    std::string version = line.substr(sp2 + 1);
 
-void HttpRequest::parseHeaders(){
-    this->_state._state = HEADERS;
-    std::string lines = _raw;
-    std::string line;
-    std::string key;
-    std::string value;
-    size_t pos = 1;
-    // skipp first line
-    getnextline(lines);
-
-    while (pos != std::string::npos)
+    if (method != "GET" && method != "POST" && method != "DELETE" &&
+        method != "PUT" && method != "HEAD" && method != "OPTIONS")
     {
-        line = getnextline(lines);
-        pos = line.find(":");
-        if (pos != std::string::npos)
-        {
-            key = line.substr(0, pos);
-            value = line.substr(pos + 1, line.length());
-            if (value[0] == ' ')
-                value = value.substr(1,value.length());
-            this->headers[key] = value;
-        }
+        state = ERROR;
+        error = ERR_METHOD_NOT_ALLOWED;
+        return;
+    }
+
+    size_t q = target.find('?');
+    if (q == std::string::npos)
+    {
+        uri = target;
+        query = "";
+    }
+    else
+    {
+        uri = target.substr(0, q);
+        query = target.substr(q + 1);
+    }
+
+    if (version == "HTTP/1.1" || version == "HTTP/1.0")
+        http_ver = version;
+    else
+    {
+        state = ERROR;
+        error = ERR_VERSION_NOT_SUPPORTED;
     }
 }
 
-void HttpRequest::parseChunkedBody(const std::string &data){
-    std::string str = data;
+void HttpRequest::parseHeaders()
+{
+    size_t start = _raw.find("\r\n");
+    if (start == std::string::npos)
+        return;
+    start += 2;
 
-    size_t pos = str.find("\r\n\r\n");
-    str = str.substr(pos+4);
+    while (start < _raw.size())
+    {
+        size_t eol = _raw.find("\r\n", start);
+        if (eol == std::string::npos || eol == start)
+            break;
+
+        std::string field = _raw.substr(start, eol - start);
+        start = eol + 2;
+
+        size_t colon = field.find(':');
+        if (colon == std::string::npos)
+            continue;
+
+        std::string key = toLower(field.substr(0, colon));
+        std::string value = field.substr(colon + 1);
+        size_t first = value.find_first_not_of(" \t");
+        value = (first == std::string::npos) ? "" : value.substr(first);
+        headers[key] = value;
+    }
+}
+
+void HttpRequest::parseChunkedBody()
+{
+    size_t pos = _raw.find("\r\n\r\n");
+    if (pos == std::string::npos)
+        return;
+    std::string str = _raw.substr(pos + 4);
+
     while (true)
     {
-        pos = str.find("\r\n");
-        std::istringstream iss(str.substr(0, pos));
-        size_t chunk_size;
+        size_t eol = str.find("\r\n");
+        if (eol == std::string::npos)
+            break;
+
+        std::istringstream iss(str.substr(0, eol));
+        size_t chunk_size = 0;
         iss >> std::hex >> chunk_size;
         if (chunk_size == 0)
-        {
-            _state._state = COMPLETE;
-            this->content_length = body.length();
-            return;
-        }
-        str = str.substr(pos+2);
+            break;
+
+        str = str.substr(eol + 2);
+        if (str.size() < chunk_size)
+            break;
         body += str.substr(0, chunk_size);
-        str = str.substr(chunk_size + 2);
+        str = (str.size() >= chunk_size + 2) ? str.substr(chunk_size + 2) : "";
     }
+    content_length = body.length();
 }
 
-void HttpRequest::feed(std::string raw, std::string buffer)
+void HttpRequest::feed(const std::string &raw)
 {
     _raw = raw;
+
     parseRequestLine();
+    if (state == ERROR)
+        return;
+
     parseHeaders();
-    
-    this->_state._state = BODY;
-    if (headers.find("Transfer-Encoding") != headers.end())
+
+    std::map<std::string, std::string>::iterator te = headers.find("transfer-encoding");
+    if (te != headers.end() && te->second == "chunked")
     {
-        std::string TransferEncoding = headers["Transfer-Encoding"];
-        if (TransferEncoding == "chunked")
-        {
-            is_chuncked = true;
-            parseChunkedBody(_raw);
-            display_request(*this);
-            return;
-        }
+        is_chunked = true;
+        parseChunkedBody();
+        state = COMPLETE;
+        return;
     }
 
-    if (headers.find("Content-Length") != headers.end())
+    std::map<std::string, std::string>::iterator cl = headers.find("content-length");
+    if (cl != headers.end())
     {
-        this->content_length = atoi(headers["Content-Length"].c_str());
-
-        body = buffer.substr(0, content_length);
+        content_length = static_cast<size_t>(std::atol(cl->second.c_str()));
+        size_t header_end = _raw.find("\r\n\r\n");
+        if (header_end != std::string::npos)
+            body = _raw.substr(header_end + 4, content_length);
     }
-    this->_state._state = COMPLETE;
-    display_request(*this);
+    state = COMPLETE;
 }
 
-//getters
-std::string HttpRequest::getMethod() const{
-    return this->method;
-}
+std::string HttpRequest::getMethod() const { return method; }
+std::string HttpRequest::getUri() const { return uri; }
+std::string HttpRequest::getPath() const { return uri; }
+std::string HttpRequest::getHttpVersion() const { return http_ver; }
+std::string HttpRequest::getQuery() const { return query; }
+std::string HttpRequest::getBody() const { return body; }
+std::map<std::string, std::string> HttpRequest::getHeaders() const { return headers; }
+size_t HttpRequest::getContentLength() const { return content_length; }
+bool HttpRequest::isComplete() const { return state == COMPLETE; }
+bool HttpRequest::hasError() const { return state == ERROR; }
+ParseError HttpRequest::getError() const { return error; }
 
-std::string HttpRequest::getUri() const{
-    return this->uri;
-}
-std::string HttpRequest::getPath() const
+std::string HttpRequest::getHeader(const std::string &key) const
 {
-    return this->uri;
-}
-
-std::string HttpRequest::getHttpVersion() const{
-    return this->http_ver;
-}
-
-std::string HttpRequest::getQuery() const{
-    return this->query;
-}
-std::map<std::string, std::string> HttpRequest::getHeaders() const{
-    return this->headers;
-}
-std::string HttpRequest::getBody() const{
-    return this->body;
-}
-
-bool HttpRequest::isComplete() const{
-    return (this->_state._state == COMPLETE);
-}
-
-bool HttpRequest::hasError() const{
-    return this->_state._state == ERROR;
-}
-
-t_parseError HttpRequest::getError() const{
-    return this->_state._error;
-}
-
-size_t HttpRequest::getContentLength() const{
-    return this->content_length;
-}
-
-std::string HttpRequest::getHeader(const std::string &key) const{
-    std::map<std::string, std::string>::const_iterator value_it = headers.find(key);
-    if (value_it == headers.end())
+    std::map<std::string, std::string>::const_iterator it = headers.find(toLower(key));
+    if (it == headers.end())
         return "";
-    return value_it->second;
+    return it->second;
 }

@@ -1,39 +1,102 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>Server 2 - 9090</title>
-    <style>body{background:#1a1a2e;color:#fff;font-family:sans-serif;padding:40px;} .box{background:#16213e;padding:20px;border-radius:8px;} button{padding:10px;background:#e94560;color:#fff;border:none;cursor:pointer;}</style>
+    <title>Server 2 - 8081</title>
+    <style>
+        body {
+            background: #1a1a2e;
+            color: #fff;
+            font-family: sans-serif;
+            padding: 40px;
+        }
+
+        .box {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        input[type="file"] {
+            color: #fff;
+            margin-right: 10px;
+        }
+
+        #status {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .ok {
+            background: #1a3a1a;
+            border: 1px solid #4caf50;
+            color: #4caf50;
+            display: block !important;
+        }
+
+        .err {
+            background: #3a1a1a;
+            border: 1px solid #e94560;
+            color: #e94560;
+            display: block !important;
+        }
+    </style>
 </head>
+
 <body>
-    <h1>Welcome to Site 2 (Port 9090)</h1>
-    <p>This server allows POST methods, uploads, and redirects.</p>
-    
+    <h1>Server 2  Port 8081</h1>
+
     <div class="box">
-        <h3>Test File Upload</h3>
-        <form id="uploadForm" enctype="multipart/form-data">
-            <input type="file" id="fileInput" name="file" required>
-            <button type="submit">Upload via POST</button>
-        </form>
-        <p id="status"></p>
+        <h3>Upload a file</h3>
+        <input type="file" id="fileInput">
+        <button onclick="doUpload()">Upload</button>
+        <div id="status"></div>
     </div>
-    
-    <br>
-    <a href="/redirect" style="color:#e94560;">Test 301 Redirect (to example.com)</a>
+
+    <div class="box">
+        <a href="/redirect" style="color:#e94560;">Test 301 Redirect example.com</a>
+    </div>
 
     <script>
-        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const file = document.getElementById('fileInput').files[0];
-            const formData = new FormData();
-            formData.append('file', file);
+        function setStatus(ok, msg) {
+            var el = document.getElementById('status');
+            el.className = ok ? 'ok' : 'err';
+            el.innerText = msg;
+        }
 
-            try {
-                const response = await fetch('/uploads', { method: 'POST', body: formData });
-                document.getElementById('status').innerText = 'Response Status: ' + response.status;
-            } catch (err) {
-                document.getElementById('status').innerText = 'Upload failed: ' + err;
-            }
-        });
+        function doUpload() {
+            var file = document.getElementById('fileInput').files[0];
+            if (!file) { setStatus(false, 'Pick a file first.'); return; }
+
+            fetch('/upload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': file.type || 'application/octet-stream',
+                    'x-file-name': file.name   // ← your C++ reads this
+                },
+                body: file                     // ← raw bytes, no FormData
+            })
+                .then(function (r) {
+                    if (r.status === 200 || r.status === 201)
+                        setStatus(true, r.status + '  "' + file.name + '" uploaded.');
+                    else
+                        setStatus(false, 'Error ' + r.status);
+                })
+                .catch(function (e) { setStatus(false, 'Failed: ' + e); });
+        }
     </script>
 </body>
+
 </html>

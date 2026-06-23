@@ -1,3 +1,7 @@
+------WebKitFormBoundaryxXBNwo7PHBjl0tHH
+Content-Disposition: form-data; name="file"; filename="Makefile"
+Content-Type: application/octet-stream
+
 NAME = webserv
 
 CXX := c++
@@ -38,3 +42,5 @@ fclean: clean
 re: fclean all
 
 .PHONY: all clean fclean re
+
+------WebKitFormBoundaryxXBNwo7PHBjl0tHH--

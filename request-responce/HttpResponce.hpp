@@ -1,55 +1,63 @@
 #ifndef HTTPRESPONCE_HPP
 #define HTTPRESPONCE_HPP
-#include "HttpRequest.hpp"
-#include "../server_core/ConfigFileParser/parser.hpp"
-#include <sstream>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <dirent.h>
-#include <stdio.h>
-#include "../cgi/cgi.hpp"
 
-class Server_core;
-class HttpResponce {
+#include "HttpRequest.hpp"
+#include "Session.hpp"
+#include "../server_core/ConfigFileParser/parser.hpp"
+#include <string>
+#include <vector>
+
+class HttpResponce
+{
 private:
-    Location _location;
-    std::string real_path;
     HttpRequest &req;
     Server &server;
-    std::string client_ip;
+    SessionManager &sessions;
+
+    Location _location;
+    bool _located;
+    std::string real_path;
 
     std::string fileContent;
     std::string contentType;
-    int fileSize;
-
-    size_t status_code;
-    std::string status_message;
+    int status_code;
+    std::vector<std::string> extra_headers;
     std::string responce;
-    std::string cgi_headers;
 
-    bool cgi_flag;
+    bool _is_cgi;
+    std::string _cgi_interp;
+    std::string _cgi_script;
+    std::string _cgi_script_name;
+    std::string _cgi_path_info;
+
+    bool matchLocation();
+    bool methodAllowed() const;
+    std::string allowedMethods() const;
+    bool detectCgi();
+
+    void handleGet();
+    void handlePost();
+    void handleDelete();
+    void handleDir();
+    void serveFile(const std::string &fsPath);
+    void listDirectory();
+    void handleSession();
+
+    void build();
+    void buildErrorBody();
 
 public:
-    HttpResponce(HttpRequest &request, Server &serv, std::string client_ip);
-    bool is_cgi(std::string path);
-    void proccess();
-    void HandleGet();
-    void HandlePost();
-    void HandleDelete();
-    void craftResponce();
-    void HandleCgi();
+    HttpResponce(HttpRequest &request, Server &serv, SessionManager &sm);
 
-    void setFileType();
-    void readFile();
-    void handleDir();
+    void process();
 
-    bool validateLocation();
-    bool validateMethod();
-
-    void handleindex();
-    void handleListing();
+    bool isCgi() const;
+    const std::string &cgiInterpreter() const;
+    const std::string &cgiScript() const;
+    const std::string &cgiScriptName() const;
+    const std::string &cgiPathInfo() const;
 
     std::string getResponce() const;
 };
+
 #endif

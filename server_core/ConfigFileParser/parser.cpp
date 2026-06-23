@@ -1,245 +1,234 @@
 #include "parser.hpp"
-#include "fstream"
-#include <vector>
-#include <stdlib.h>
+#include <fstream>
+#include <cstdlib>
+#include <cctype>
 
-std::vector<std::string> split(const std::string line, char del)
+Location::Location()
+    : directory_listing(false), upload_enabled(false)
 {
-    char now;
-    int i = 0;
+}
 
+Server::Server()
+    : host("0.0.0.0"), port(80), max_body_size(1048576)
+{
+}
+
+static std::vector<std::string> split(const std::string &line)
+{
     std::string token;
-    std::vector<std::string> tokeens;
-    while (i < line.size())
+    std::vector<std::string> tokens;
+
+    for (size_t i = 0; i < line.size(); i++)
     {
-        if (line[i] == del)
+        char c = line[i];
+        if (c == ' ' || c == '\t')
         {
             if (!token.empty())
             {
-                tokeens.push_back(token);
+                tokens.push_back(token);
                 token.clear();
             }
         }
-        else if (line[i] == ';' || line[i] == '{' || line[i] == '}')
+        else if (c == ';' || c == '{' || c == '}')
         {
             if (!token.empty())
             {
-                tokeens.push_back(token);
+                tokens.push_back(token);
                 token.clear();
             }
-            tokeens.push_back(std::string(1, line[i]));
+            tokens.push_back(std::string(1, c));
         }
         else
-            token += line[i];
-        i++;
+            token += c;
     }
     if (!token.empty())
-        tokeens.push_back(token);
-    return tokeens;
+        tokens.push_back(token);
+    return tokens;
 }
-enum states
+
+enum States
 {
     GLOBAL,
     IN_SERVER,
     IN_LOCATION
 };
-bool is_nb(const std::string &nb)
+
+static bool is_number(const std::string &nb)
 {
     if (nb.empty())
-    {
         return false;
-    }
-    for (int i = 0; i < nb.size(); i++)
+    for (size_t i = 0; i < nb.size(); i++)
     {
-        if (!isdigit(nb[i]))
-        {
+        if (!std::isdigit(static_cast<unsigned char>(nb[i])))
             return false;
-        }
     }
     return true;
 }
 
-void parser(std::vector<Server> &servers)
+bool parser(std::vector<Server> &servers, const std::string &path)
 {
-    Location lc_data;
-    Server sv_data;
-    Server *currentServer = NULL;
+    Server *current = NULL;
     std::string line;
-    std::ifstream file("config.conf");
-    states state = GLOBAL;
+    std::ifstream file(path.c_str());
+    States state = GLOBAL;
+
     if (!file.is_open())
     {
-        std::cerr << "Error, Cant open the file" << std::endl;
-        return;
+        std::cerr << "Error: cannot open config file: " << path << std::endl;
+        return false;
     }
-    int i;
-    while (getline(file, line))
+
+    while (std::getline(file, line))
     {
-        i = 0;
-        // std::cout << line << std::endl;
-        std::vector<std::string> tokens = split(line, ' ');
-        for (i = 0; i < (int)tokens.size(); i++)
+        std::vector<std::string> tokens = split(line);
+        for (size_t i = 0; i < tokens.size(); i++)
         {
-            if (tokens.empty())
+            const std::string &tok = tokens[i];
+
+            if (tok == "server")
             {
-                std::cerr << "Error, Failed to get tokens" << std::endl;
-                return;
-            }
-            // std::cout << tokens[i] << std::endl;
-            if (tokens[i] == "server")
-            {
-                if (tokens.size() < i + 2 || tokens[i + 1] != "{")
+                if (state != GLOBAL || i + 1 >= tokens.size() || tokens[i + 1] != "{")
                 {
-                    std::cerr << "Error, Bad token after server!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad token after 'server'" << std::endl;
+                    return false;
                 }
                 servers.push_back(Server());
-                currentServer = &servers.back();
+                current = &servers.back();
                 state = IN_SERVER;
                 i++;
             }
-            else if (tokens[i] == "location")
+            else if (tok == "location")
             {
+                if (state != IN_SERVER || i + 2 >= tokens.size() || tokens[i + 2] != "{")
+                {
+                    std::cerr << "Error: bad token after 'location'" << std::endl;
+                    return false;
+                }
+                Location loc;
+                loc.path = tokens[i + 1];
+                current->locations.push_back(loc);
                 state = IN_LOCATION;
-                if (servers.empty())
-                {
-                    std::cerr << "Error, No Server yet!" << std::endl;
-                    return;
-                }
-                if (tokens.size() < i + 3 || tokens[i + 2] != "{")
-                {
-                    std::cerr << "Error, Bad token after location!" << std::endl;
-                    return;
-                }
-                lc_data = Location();
-                lc_data.path = tokens[i + 1];
-                currentServer->locations.push_back(lc_data);
                 i += 2;
             }
-            else if (state == IN_SERVER && tokens[i] == "listen")
+            else if (state == IN_SERVER && (tok == "host" || tok == "interface"))
             {
-                if (tokens.size() < i + 3 || !is_nb(tokens[i + 1]) || tokens[i + 2] != ";")
+                if (i + 2 >= tokens.size() || tokens[i + 2] != ";")
                 {
-                    std::cerr << "Error, Bad listen directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad host directive" << std::endl;
+                    return false;
                 }
-                currentServer->port = atoi(tokens[i + 1].c_str());
+                current->host = tokens[i + 1];
                 i += 2;
             }
-            else if (state == IN_SERVER && tokens[i] == "interface")
+            else if (state == IN_SERVER && tok == "listen")
             {
-                if (tokens.size() < i + 3 || tokens[i + 2] != ";")
+                if (i + 2 >= tokens.size() || !is_number(tokens[i + 1]) || tokens[i + 2] != ";")
                 {
-                    std::cerr << "Error, Bad interface directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad listen directive" << std::endl;
+                    return false;
                 }
-                currentServer->interface_ip = tokens[i + 1];
+                current->port = std::atoi(tokens[i + 1].c_str());
                 i += 2;
             }
-            else if (state == IN_SERVER && tokens[i] == "error_page")
+            else if (state == IN_SERVER && tok == "error_page")
             {
-                if (tokens.size() < i + 4 || !is_nb(tokens[i + 1]) || tokens[i + 3] != ";")
+                if (i + 3 >= tokens.size() || !is_number(tokens[i + 1]) || tokens[i + 3] != ";")
                 {
-                    std::cerr << "Error, Bad error_page directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad error_page directive" << std::endl;
+                    return false;
                 }
-                int code = atoi(tokens[i + 1].c_str());
-                currentServer->error_pages[code] = tokens[i + 2];
+                current->error_pages[std::atoi(tokens[i + 1].c_str())] = tokens[i + 2];
                 i += 3;
             }
-            else if (state == IN_SERVER && tokens[i] == "max_body_size")
+            else if (state == IN_SERVER && tok == "max_body_size")
             {
-                if (tokens.size() < i + 3 || !is_nb(tokens[i + 1]) || tokens[i + 2] != ";")
+                if (i + 2 >= tokens.size() || !is_number(tokens[i + 1]) || tokens[i + 2] != ";")
                 {
-                    std::cerr << "Error, Bad max_body_size directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad max_body_size directive" << std::endl;
+                    return false;
                 }
-                currentServer->max_body_size = atoi(tokens[i + 1].c_str());
+                current->max_body_size = static_cast<size_t>(std::atol(tokens[i + 1].c_str()));
                 i += 2;
             }
-            else if ((state == IN_SERVER || state == IN_LOCATION) && tokens[i] == "root")
+            else if ((state == IN_SERVER || state == IN_LOCATION) && tok == "root")
             {
-                if (tokens.size() < i + 3 || tokens[i + 2] != ";")
+                if (i + 2 >= tokens.size() || tokens[i + 2] != ";")
                 {
-                    std::cerr << "Error, Bad root directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad root directive" << std::endl;
+                    return false;
                 }
                 if (state == IN_SERVER)
-                    currentServer->root = tokens[i + 1];
-                else if (state == IN_LOCATION)
-                    currentServer->locations.back().root = tokens[i + 1];
+                    current->root = tokens[i + 1];
+                else
+                    current->locations.back().root = tokens[i + 1];
                 i += 2;
             }
-            else if (state == IN_LOCATION && tokens[i] == "methods")
+            else if (state == IN_LOCATION && tok == "methods")
             {
-                int j = i + 1;
+                size_t j = i + 1;
                 std::vector<std::string> methods;
-                while (j < (int)tokens.size() && tokens[j] != ";")
+                while (j < tokens.size() && tokens[j] != ";")
+                    methods.push_back(tokens[j++]);
+                if (j >= tokens.size())
                 {
-                    methods.push_back(tokens[j]);
-                    j++;
+                    std::cerr << "Error: bad methods directive" << std::endl;
+                    return false;
                 }
-                if (j == (int)tokens.size() || tokens[j] != ";")
-                {
-                    std::cerr << "Error, Bad methods directive!" << std::endl;
-                    return;
-                }
-                currentServer->locations.back().methods = methods;
+                current->locations.back().methods = methods;
                 i = j;
             }
-            else if (state == IN_LOCATION && tokens[i] == "redirection")
+            else if (state == IN_LOCATION && tok == "redirection")
             {
-                if (tokens.size() < i + 3 || tokens[i + 2] != ";")
+                if (i + 2 >= tokens.size() || tokens[i + 2] != ";")
                 {
-                    std::cerr << "Error, Bad redirection directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad redirection directive" << std::endl;
+                    return false;
                 }
-                currentServer->locations.back().redirection = tokens[i + 1];
+                current->locations.back().redirection = tokens[i + 1];
                 i += 2;
             }
-            else if (state == IN_LOCATION && tokens[i] == "directory_listing")
+            else if (state == IN_LOCATION && (tok == "directory_listing" || tok == "autoindex"))
             {
-                if (tokens.size() < i + 3 || tokens[i + 2] != ";")
+                if (i + 2 >= tokens.size() || tokens[i + 2] != ";")
                 {
-                    std::cerr << "Error, Bad directory_listing directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad directory listing directive" << std::endl;
+                    return false;
                 }
-                currentServer->locations.back().directory_listing = (tokens[i + 1] == "on");
+                current->locations.back().directory_listing = (tokens[i + 1] == "on");
                 i += 2;
             }
-            else if (state == IN_LOCATION && tokens[i] == "index")
+            else if (state == IN_LOCATION && tok == "index")
             {
-                if (tokens.size() < i + 3 || tokens[i + 2] != ";")
+                if (i + 2 >= tokens.size() || tokens[i + 2] != ";")
                 {
-                    std::cerr << "Error, Bad index directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad index directive" << std::endl;
+                    return false;
                 }
-                currentServer->locations.back().default_file = tokens[i + 1];
+                current->locations.back().default_file = tokens[i + 1];
                 i += 2;
             }
-            else if (state == IN_LOCATION && tokens[i] == "upload")
+            else if (state == IN_LOCATION && tok == "upload")
             {
-                if (tokens.size() < i + 4 || tokens[i + 3] != ";")
+                if (i + 3 >= tokens.size() || tokens[i + 3] != ";")
                 {
-                    std::cerr << "Error, Bad upload directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad upload directive" << std::endl;
+                    return false;
                 }
-                currentServer->locations.back().upload_enabled = (tokens[i + 1] == "on");
-                currentServer->locations.back().upload_path = tokens[i + 2];
+                current->locations.back().upload_enabled = (tokens[i + 1] == "on");
+                current->locations.back().upload_path = tokens[i + 2];
                 i += 3;
             }
-            else if (state == IN_LOCATION && tokens[i] == "cgi")
+            else if (state == IN_LOCATION && tok == "cgi")
             {
-                if (tokens.size() < i + 4 || tokens[i + 3] != ";")
+                if (i + 3 >= tokens.size() || tokens[i + 3] != ";")
                 {
-                    std::cerr << "Error, Bad cgi directive!" << std::endl;
-                    return;
+                    std::cerr << "Error: bad cgi directive" << std::endl;
+                    return false;
                 }
-                currentServer->locations.back().cgi_extension = tokens[i + 1];
-                currentServer->locations.back().cgi_path = tokens[i + 2];
+                current->locations.back().cgi[tokens[i + 1]] = tokens[i + 2];
                 i += 3;
             }
-            else if (tokens[i] == "}")
+            else if (tok == "}")
             {
                 if (state == IN_LOCATION)
                     state = IN_SERVER;
@@ -247,11 +236,27 @@ void parser(std::vector<Server> &servers)
                     state = GLOBAL;
                 else
                 {
-                    std::cerr << "Error, Bad token!" << std::endl;
-                    return;
+                    std::cerr << "Error: unexpected '}'" << std::endl;
+                    return false;
                 }
+            }
+            else
+            {
+                std::cerr << "Error: unknown directive '" << tok << "'" << std::endl;
+                return false;
             }
         }
     }
-    file.close();
+
+    if (state != GLOBAL)
+    {
+        std::cerr << "Error: unexpected end of config (missing '}')" << std::endl;
+        return false;
+    }
+    if (servers.empty())
+    {
+        std::cerr << "Error: no server defined in config" << std::endl;
+        return false;
+    }
+    return true;
 }

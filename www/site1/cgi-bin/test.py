@@ -1,15 +1,14 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 
 import os
+import sys
 
-print("Content-Type: text/html\n")
+body = sys.stdin.read()
 
-print("<html>")
-print("<body>")
-print("<h1>CGI WORKS</h1>")
+print("Content-Type: text/html")
+print()
 
-print("<h2>METHOD:", os.environ.get("REQUEST_METHOD"), "</h2>")
-print("<h2>QUERY:", os.environ.get("QUERY_STRING"), "</h2>")
-
-print("</body>")
-print("</html>")
+print("<h1>CGI Works</h1>")
+print("<p>Method:", os.environ.get("REQUEST_METHOD"), "</p>")
+print("<p>Query:", os.environ.get("QUERY_STRING"), "</p>")
+print("<p>Body:", body, "</p>")
